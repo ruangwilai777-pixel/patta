@@ -1,9 +1,9 @@
 ﻿{
     "theme_color": "#1e293b",
-    "name": "ภัทธา ทรานสปอร์ต แอนด์ โลจิสติกส์",
+    "name": "ภัทธา ทรานสปอร์ต",
     "background_color": "#0f172a",
     "display": "standalone",
-    "short_name": "Patta T&L",
+    "short_name": "ภัทธา",
     "icons": [
         {
             "purpose": "any maskable",
