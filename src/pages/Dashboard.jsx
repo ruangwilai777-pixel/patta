@@ -356,13 +356,12 @@ const Dashboard = () => {
                     />
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* 2. Office Copy - Always Patta's name for billing */}
                         <div style={{ textAlign: 'center' }}>
                             <h3 style={{ fontSize: '1.1rem', color: '#000', fontWeight: '800', margin: '1rem 0' }}>
-                                🧾 ใบแจ้งยอด (สรุปตามเส้นทาง)
+                                🧾 ใบวางบิลสำหรับสำนักงาน (แยกรายวัน)
                             </h3>
                         </div>
-
-                        {/* 2. Office Copy - Always Patta's name for billing */}
                         <BillingSummary
                             trips={driverTrips}
                             currentMonth={currentMonth}
@@ -373,6 +372,11 @@ const Dashboard = () => {
                             cnDeduction={cnDeductions['นางสาว ภัทธา เรืองวิลัย'] || 0}
                         />
                         {/* 3. Driver Copy - Shows actual driver's name */}
+                        <div style={{ textAlign: 'center' }}>
+                            <h3 style={{ fontSize: '1.1rem', color: '#000', fontWeight: '800', margin: '1.5rem 0 1rem 0' }}>
+                                🧾 ใบแจ้งยอดสำหรับคนขับ (สรุปตามเส้นทาง)
+                            </h3>
+                        </div>
                         <BillingSummary
                             trips={driverTrips}
                             currentMonth={currentMonth}

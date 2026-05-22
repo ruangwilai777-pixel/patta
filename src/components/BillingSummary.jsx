@@ -15,65 +15,121 @@ const BillingSummary = ({ trips, currentMonth, currentYear, driverName = "นา
 
     // Group trips by Route and Price (Separate Delivery Fee/Wage and Basket Fee/Share rows)
     const groupedData = React.useMemo(() => {
-        const deliveryGroups = {};
-        const basketGroups = {};
+        if (!isDriverCopy) {
+            // Office Copy: Daily breakdown (un-aggregated)
+            const list = [];
+            trips.forEach(trip => {
+                if (!trip.date) return;
+                const [y, m, d] = trip.date.split('-');
+                
+                const deliveryVal = parseFloat(trip.price || 0);
+                const deliveryLabel = 'ค่าขนส่งสินค้า';
 
-        trips.forEach(trip => {
-            if (!trip.date) return;
-            // Use actual month/year from trip date to separate groups by month
-            const [y, m, d] = trip.date.split('-');
+                const basketVal = parseFloat(trip.basket || 0);
+                const basketLabel = 'ค่าตะกร้าสินค้า';
 
-            // Determine values and labels based on copy type
-            const deliveryVal = isDriverCopy ? parseFloat(trip.wage || 0) : parseFloat(trip.price || 0);
-            const deliveryLabel = isDriverCopy ? 'ค่าจ้าง' : 'ค่าขนส่งสินค้า';
+                const beYear = (parseInt(y) + 543).toString().slice(-2);
+                const formattedDate = `${d}/${m}/${beYear}`;
 
-            const basketVal = isDriverCopy ? parseFloat(trip.basketShare || 0) : parseFloat(trip.basket || 0);
-            const basketLabel = isDriverCopy ? 'ค่าส่วนแบ่งตะกร้า' : 'ค่าตะกร้าสินค้า';
-
-            // Handle Delivery/Wage
-            if (deliveryVal > 0) {
-                const dKey = `DEL_${trip.route}_${deliveryVal}_${m}_${y}`;
-                if (!deliveryGroups[dKey]) {
-                    deliveryGroups[dKey] = {
+                if (deliveryVal > 0) {
+                    list.push({
+                        date: trip.date,
+                        formattedDate,
                         route: trip.route,
                         type: deliveryLabel,
                         pricePerUnit: deliveryVal,
-                        count: 0,
-                        totalAmount: 0,
+                        count: 1,
+                        totalAmount: deliveryVal,
                         month: m,
                         year: y
-                    };
+                    });
                 }
-                deliveryGroups[dKey].count += 1;
-                deliveryGroups[dKey].totalAmount += deliveryVal;
-            }
 
-            // Handle Basket/Share
-            if (basketVal > 0) {
-                const bKey = `BSK_${trip.route}_${basketVal}_${m}_${y}`;
-                if (!basketGroups[bKey]) {
-                    basketGroups[bKey] = {
+                if (basketVal > 0) {
+                    list.push({
+                        date: trip.date,
+                        formattedDate,
                         route: trip.route,
                         type: basketLabel,
                         pricePerUnit: basketVal,
-                        count: 0,
-                        totalAmount: 0,
+                        count: 1,
+                        totalAmount: basketVal,
                         month: m,
                         year: y
-                    };
+                    });
                 }
-                basketGroups[bKey].count += 1;
-                basketGroups[bKey].totalAmount += basketVal;
-            }
-        });
+            });
 
-        return [...Object.values(deliveryGroups), ...Object.values(basketGroups)].sort((a, b) => {
-            if (a.year !== b.year) return a.year - b.year;
-            if (a.month !== b.month) return a.month - b.month;
-            if (a.route < b.route) return -1;
-            if (a.route > b.route) return 1;
-            return a.type.includes('ตะกร้า') ? 1 : -1;
-        });
+            // Sort chronologically by date, then route, then type
+            return list.sort((a, b) => {
+                if (a.date !== b.date) {
+                    return a.date.localeCompare(b.date);
+                }
+                if (a.route !== b.route) {
+                    return a.route.localeCompare(b.route);
+                }
+                return a.type.includes('ตะกร้า') ? 1 : -1;
+            });
+        } else {
+            // Driver Copy: Grouped by route (original logic)
+            const deliveryGroups = {};
+            const basketGroups = {};
+
+            trips.forEach(trip => {
+                if (!trip.date) return;
+                const [y, m, d] = trip.date.split('-');
+
+                const deliveryVal = parseFloat(trip.wage || 0);
+                const deliveryLabel = 'ค่าจ้าง';
+
+                const basketVal = parseFloat(trip.basketShare || 0);
+                const basketLabel = 'ค่าส่วนแบ่งตะกร้า';
+
+                // Handle Delivery/Wage
+                if (deliveryVal > 0) {
+                    const dKey = `DEL_${trip.route}_${deliveryVal}_${m}_${y}`;
+                    if (!deliveryGroups[dKey]) {
+                        deliveryGroups[dKey] = {
+                            route: trip.route,
+                            type: deliveryLabel,
+                            pricePerUnit: deliveryVal,
+                            count: 0,
+                            totalAmount: 0,
+                            month: m,
+                            year: y
+                        };
+                    }
+                    deliveryGroups[dKey].count += 1;
+                    deliveryGroups[dKey].totalAmount += deliveryVal;
+                }
+
+                // Handle Basket/Share
+                if (basketVal > 0) {
+                    const bKey = `BSK_${trip.route}_${basketVal}_${m}_${y}`;
+                    if (!basketGroups[bKey]) {
+                        basketGroups[bKey] = {
+                            route: trip.route,
+                            type: basketLabel,
+                            pricePerUnit: basketVal,
+                            count: 0,
+                            totalAmount: 0,
+                            month: m,
+                            year: y
+                        };
+                    }
+                    basketGroups[bKey].count += 1;
+                    basketGroups[bKey].totalAmount += basketVal;
+                }
+            });
+
+            return [...Object.values(deliveryGroups), ...Object.values(basketGroups)].sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year;
+                if (a.month !== b.month) return a.month - b.month;
+                if (a.route < b.route) return -1;
+                if (a.route > b.route) return 1;
+                return a.type.includes('ตะกร้า') ? 1 : -1;
+            });
+        }
     }, [trips, isDriverCopy]);
 
     const deliveryData = groupedData.filter(item => !item.type.includes('ตะกร้า'));
@@ -135,7 +191,7 @@ const BillingSummary = ({ trips, currentMonth, currentYear, driverName = "นา
                             <thead>
                                 <tr style={{ background: '#f0f4f8', color: '#334155' }}>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '50px', fontSize: '13px', fontWeight: '700' }}>ลำดับ</th>
-                                    <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '90px', fontSize: '13px', fontWeight: '700' }}>เดือน/ปี</th>
+                                    <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '90px', fontSize: '13px', fontWeight: '700' }}>{isDriverCopy ? 'เดือน/ปี' : 'วันที่'}</th>
                                     <th style={{ ...thStyle, padding: '12px 10px', border: '1px solid #cbd5e1', textAlign: 'left', fontSize: '13px', fontWeight: '700' }}>สายงาน</th>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '70px', fontSize: '13px', fontWeight: '700' }}>เที่ยว</th>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', textAlign: 'right', width: '100px', fontSize: '13px', fontWeight: '700' }}>ราคา/เที่ยว</th>
@@ -147,7 +203,9 @@ const BillingSummary = ({ trips, currentMonth, currentYear, driverName = "นา
                                     <tr key={idx} style={{ background: '#fff' }}>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', color: '#000', fontWeight: '700', border: '1px solid #cbd5e1' }}>{String(idx + 1).padStart(2, '0')}</td>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', border: '1px solid #cbd5e1' }}>
-                                            <span style={{ fontWeight: '500', fontSize: '13px', color: '#000' }}>{item.month}/{item.year}</span>
+                                            <span style={{ fontWeight: '500', fontSize: '13px', color: '#000' }}>
+                                                {isDriverCopy ? `${item.month}/${item.year}` : item.formattedDate}
+                                            </span>
                                         </td>
                                         <td style={{ ...tdStyle, padding: '10px', fontWeight: '600', color: '#000', border: '1px solid #cbd5e1', fontSize: '15px' }}>{item.route}</td>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', fontWeight: '500', fontSize: '1rem', color: '#000', border: '1px solid #cbd5e1' }}>{item.count}</td>
@@ -171,7 +229,7 @@ const BillingSummary = ({ trips, currentMonth, currentYear, driverName = "นา
                             <thead>
                                 <tr style={{ background: '#f0f4f8', color: '#334155' }}>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '50px', fontSize: '13px', fontWeight: '700' }}>ลำดับ</th>
-                                    <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '90px', fontSize: '13px', fontWeight: '700' }}>เดือน/ปี</th>
+                                    <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '90px', fontSize: '13px', fontWeight: '700' }}>{isDriverCopy ? 'เดือน/ปี' : 'วันที่'}</th>
                                     <th style={{ ...thStyle, padding: '12px 10px', border: '1px solid #cbd5e1', textAlign: 'left', fontSize: '13px', fontWeight: '700' }}>รายละเอียดตะกร้า</th>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', width: '70px', fontSize: '13px', fontWeight: '700' }}>จำนวน</th>
                                     <th style={{ ...thStyle, padding: '12px 6px', border: '1px solid #cbd5e1', textAlign: 'right', width: '100px', fontSize: '13px', fontWeight: '700' }}>ราคา/หน่วย</th>
@@ -183,7 +241,9 @@ const BillingSummary = ({ trips, currentMonth, currentYear, driverName = "นา
                                     <tr key={idx} style={{ background: '#fff' }}>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', color: '#000', fontWeight: '700', border: '1px solid #cbd5e1' }}>{String(idx + 1).padStart(2, '0')}</td>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', border: '1px solid #cbd5e1' }}>
-                                            <span style={{ fontWeight: '600', fontSize: '13px', color: '#000' }}>{item.month}/{item.year}</span>
+                                            <span style={{ fontWeight: '600', fontSize: '13px', color: '#000' }}>
+                                                {isDriverCopy ? `${item.month}/${item.year}` : item.formattedDate}
+                                            </span>
                                         </td>
                                         <td style={{ ...tdStyle, padding: '10px', fontWeight: '600', color: '#000', border: '1px solid #cbd5e1', fontSize: '15px' }}>{item.route}</td>
                                         <td style={{ ...tdStyle, padding: '10px', textAlign: 'center', fontWeight: '500', fontSize: '1rem', color: '#000', border: '1px solid #cbd5e1' }}>{item.count}</td>
