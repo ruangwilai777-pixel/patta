@@ -185,11 +185,15 @@
               if (!tableContainer || !summaryContainer || !overviewContainer) return;
               
               if (currentViewMode === 'daily') {
+                  document.body.classList.add('view-mode-daily');
+                  document.body.classList.remove('view-mode-summary');
                   tableContainer.style.setProperty('display', 'none', 'important');
                   summaryContainer.style.setProperty('display', 'none', 'important');
                   overviewContainer.style.setProperty('display', 'block', 'important');
                   generateOverview(tableContainer, overviewContainer);
               } else {
+                  document.body.classList.add('view-mode-summary');
+                  document.body.classList.remove('view-mode-daily');
                   tableContainer.style.setProperty('display', 'none', 'important');
                   summaryContainer.style.setProperty('display', 'block', 'important');
                   overviewContainer.style.setProperty('display', 'none', 'important');
@@ -216,14 +220,14 @@
                   if (!driverName || driverName === '-' || driverName === 'ไม่ระบุชื่อ') continue;
                   
                   totalTrips += 1;
-                  totalRevenue += parseVal(row.cells[3]);
-                  totalFuel += parseVal(row.cells[4]);
-                  totalWages += parseVal(row.cells[5]);
-                  totalMaintenance += parseVal(row.cells[6]);
-                  totalBaskets += parseVal(row.cells[7]);
-                  totalBasketShare += parseVal(row.cells[8]);
-                  totalAdvances += parseVal(row.cells[9]);
-                  totalProfit += parseVal(row.cells[10]);
+                  totalRevenue += parseVal(row.cells[3]);      // index 3: ค่าเที่ยว
+                  totalWages += parseVal(row.cells[4]);        // index 4: ค่าจ้าง
+                  totalBaskets += parseVal(row.cells[5]);      // index 5: ค่าตะกร้า
+                  totalBasketShare += parseVal(row.cells[6]);  // index 6: ส่วนแบ่ง
+                  totalFuel += parseVal(row.cells[7]);         // index 7: น้ำมัน
+                  totalAdvances += parseVal(row.cells[8]);     // index 8: เบิก
+                  totalMaintenance += parseVal(row.cells[9]);  // index 9: ค่าซ่อม
+                  totalProfit += parseVal(row.cells[10]);      // index 10: กำไร
               }
               
               const totalExpenses = totalFuel + totalWages + totalMaintenance + totalBasketShare;
@@ -260,6 +264,27 @@
                       }
                       .animate-fade-in {
                           animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                      }
+                      
+                      /* Robust React-Override Styles */
+                      body.view-mode-daily .table-container:not(.summary-table-container):not(.system-overview-container) {
+                          display: none !important;
+                      }
+                      body.view-mode-daily .summary-table-container {
+                          display: none !important;
+                      }
+                      body.view-mode-daily .system-overview-container {
+                          display: block !important;
+                      }
+                      
+                      body.view-mode-summary .table-container:not(.summary-table-container):not(.system-overview-container) {
+                          display: none !important;
+                      }
+                      body.view-mode-summary .summary-table-container {
+                          display: block !important;
+                      }
+                      body.view-mode-summary .system-overview-container {
+                          display: none !important;
                       }
                   `;
                   document.head.appendChild(style);
