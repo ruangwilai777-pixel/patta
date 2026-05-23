@@ -36,7 +36,8 @@ const Dashboard = () => {
         currentYear, setCurrentYear,
         routePresets, cnDeductions, setCnDeductions,
         fetchPresets, fetchTrips,
-        isSupabaseReady, currentMonthTripsEnriched, uploadFile
+        isSupabaseReady, currentMonthTripsEnriched, uploadFile,
+        bulkUpdateRoutePrice
     } = useTrips();
 
     React.useEffect(() => {
@@ -205,6 +206,8 @@ const Dashboard = () => {
                     cnDeductions={cnDeductions}
                     setCnDeductions={setCnDeductions}
                     showSlips={true}
+                    onBulkUpdateRoutePrice={bulkUpdateRoutePrice}
+                    routePresets={routePresets}
                 />
             )}
 

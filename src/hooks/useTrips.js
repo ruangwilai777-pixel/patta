@@ -426,6 +426,139 @@ export const useTrips = () => {
         }
     };
 
+    const bulkUpdateRoutePrice = async (targetMonth, targetYear, route, priceValue) => {
+        if (!isSupabaseReady) return { success: false, error: 'Supabase not ready' };
+        
+        const p = (v) => parseFloat(v) || 0;
+        const flatPrice = p(priceValue);
+        const cleanRoute = (route || '').trim();
+        if (!cleanRoute) return { success: false, error: 'กรุณาระบุสายรถ' };
+
+        // Calculate billing period dates: 20th of prev month to 19th of target month
+        const start = new Date(targetYear, targetMonth - 1, 20);
+        const end = new Date(targetYear, targetMonth, 19);
+        
+        // Generate list of dates in YYYY-MM-DD format
+        const dates = [];
+        let current = new Date(start);
+        while (current <= end) {
+            const y = current.getFullYear();
+            const m = String(current.getMonth() + 1).padStart(2, '0');
+            const d = String(current.getDate()).padStart(2, '0');
+            dates.push(`${y}-${m}-${d}`);
+            current.setDate(current.getDate() + 1);
+        }
+
+        try {
+            setLoading(true);
+
+            // 1. Fetch presets to get default wage if available
+            const presets = await fetchPresets(targetMonth, targetYear, false) || {};
+            const preset = presets[cleanRoute] || {};
+            const defaultWage = p(preset.wage);
+
+            // 2. Fetch all existing trips for this route in this period
+            const startStr = dates[0];
+            const endStr = dates[dates.length - 1];
+            const { data: existingTrips, error: fetchError } = await supabase
+                .from('trips')
+                .select('*')
+                .eq('route', cleanRoute)
+                .gte('date', startStr)
+                .lte('date', endStr);
+
+            if (fetchError) throw fetchError;
+
+            // Map existing trips by date
+            const tripsByDate = {};
+            if (existingTrips) {
+                existingTrips.forEach(t => {
+                    if (t.date) {
+                        const dStr = t.date.split('T')[0];
+                        if (!tripsByDate[dStr]) tripsByDate[dStr] = [];
+                        tripsByDate[dStr].push(t);
+                    }
+                });
+            }
+
+            const upsertPayloads = [];
+            const insertPayloads = [];
+
+            // 3. For each date in the period, check if there is an existing trip
+            dates.forEach(dateStr => {
+                const dayTrips = tripsByDate[dateStr] || [];
+                if (dayTrips.length > 0) {
+                    // Update all existing trips for this route on this date to the new price
+                    dayTrips.forEach(t => {
+                        const fuel = p(t.fuel);
+                        const wage = p(t.wage) || defaultWage;
+                        const basket = p(t.basket);
+                        const maintenance = p(t.maintenance);
+                        const basketShare = p(t.staff_share); // in DB staff_share is basketShare
+                        
+                        upsertPayloads.push({
+                            id: t.id,
+                            date: dateStr,
+                            route: cleanRoute,
+                            driver_name: t.driver_name || '',
+                            price: flatPrice,
+                            fuel,
+                            wage,
+                            basket,
+                            maintenance,
+                            advance: p(t.advance),
+                            staff_share: basketShare,
+                            basket_count: parseInt(t.basket_count || 0),
+                            fuel_bill_url: t.fuel_bill_url || null,
+                            maintenance_bill_url: t.maintenance_bill_url || null,
+                            basket_bill_url: t.basket_bill_url || null
+                        });
+                    });
+                } else {
+                    // Insert a new blank trip for this route on this date with the new price
+                    insertPayloads.push({
+                        date: dateStr,
+                        route: cleanRoute,
+                        driver_name: '',
+                        price: flatPrice,
+                        fuel: 0,
+                        wage: defaultWage,
+                        basket: 0,
+                        maintenance: 0,
+                        advance: 0,
+                        staff_share: 0,
+                        basket_count: 0
+                    });
+                }
+            });
+
+            // 4. Execute updates in bulk via supabase upsert
+            if (upsertPayloads.length > 0) {
+                const { error: updateErr } = await supabase
+                    .from('trips')
+                    .upsert(upsertPayloads, { onConflict: 'id' });
+                if (updateErr) throw updateErr;
+            }
+
+            // 5. Execute inserts in bulk via supabase insert
+            if (insertPayloads.length > 0) {
+                const { error: insertErr } = await supabase
+                    .from('trips')
+                    .insert(insertPayloads);
+                if (insertErr) throw insertErr;
+            }
+
+            // 6. Refresh the local state
+            await fetchTrips();
+            return { success: true };
+        } catch (err) {
+            console.error('Bulk update route price error:', err);
+            return { success: false, error: err.message || err };
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const uploadFile = async (file, bucket) => {
         if (!isSupabaseReady || !file) return null;
         try {
@@ -456,6 +589,6 @@ export const useTrips = () => {
         routePresets, cnDeductions, setCnDeductions,
         saveRoutePreset, deletePreset, fetchPresets,
         isSupabaseReady, fetchTrips, loading, uploadFile,
-        currentMonthTripsEnriched
+        currentMonthTripsEnriched, bulkUpdateRoutePrice
     };
 };

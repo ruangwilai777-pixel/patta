@@ -2,9 +2,57 @@ import React from 'react';
 import { Download, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, ReceiptText, Camera, History, X } from 'lucide-react';
 import SalarySlip from './SalarySlip';
 
-const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExport, onSelectDate, onEditTrip, onDeleteTrip, cnDeductions, setCnDeductions, showSlips = true, onlySlips = false }) => {
+const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExport, onSelectDate, onEditTrip, onDeleteTrip, cnDeductions, setCnDeductions, showSlips = true, onlySlips = false, onBulkUpdateRoutePrice, routePresets }) => {
     const [selectedDriverForSlip, setSelectedDriverForSlip] = React.useState(null);
     const [selectedDriverForHistory, setSelectedDriverForHistory] = React.useState(null);
+
+    const [isBulkOpen, setIsBulkOpen] = React.useState(false);
+    const [bulkMonth, setBulkMonth] = React.useState(currentMonth);
+    const [bulkYear, setBulkYear] = React.useState(currentYear);
+    const [bulkRoute, setBulkRoute] = React.useState('');
+    const [bulkPrice, setBulkPrice] = React.useState('');
+    const [isBulkLoading, setIsBulkLoading] = React.useState(false);
+
+    React.useEffect(() => {
+        setBulkMonth(currentMonth);
+        setBulkYear(currentYear);
+    }, [currentMonth, currentYear]);
+
+    const handleBulkSubmit = async (e) => {
+        e.preventDefault();
+        if (!bulkRoute.trim()) {
+            alert('กรุณากรอกสายรถ');
+            return;
+        }
+        if (!bulkPrice || parseFloat(bulkPrice) <= 0) {
+            alert('กรุณากรอกจำนวนเงินให้ถูกต้อง');
+            return;
+        }
+        
+        const confirmMsg = `คุณแน่ใจหรือไม่ว่าต้องการอัปเดต/เพิ่มค่าเที่ยวของสายรถ "${bulkRoute.trim()}" ในรอบเดือน ${months[bulkMonth]} ${bulkYear} เป็นจำนวนเงิน ฿${parseFloat(bulkPrice).toLocaleString()} สำหรับทุกวันในเดือนนี้ทั้งหมดพร้อมกัน?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        setIsBulkLoading(true);
+        try {
+            if (onBulkUpdateRoutePrice) {
+                const res = await onBulkUpdateRoutePrice(bulkMonth, bulkYear, bulkRoute.trim(), parseFloat(bulkPrice));
+                if (res.success) {
+                    alert('🎉 บันทึกรวบยอดข้อมูลค่าเที่ยวทุกวันเรียบร้อยแล้วครับ!');
+                    setIsBulkOpen(false);
+                    setBulkRoute('');
+                    setBulkPrice('');
+                } else {
+                    alert(`❌ เกิดข้อผิดพลาด: ${res.error || 'ไม่สามารถอัปเดตข้อมูลได้'}`);
+                }
+            } else {
+                alert('ฟังก์ชัน Bulk Update ไม่พร้อมใช้งาน');
+            }
+        } catch (err) {
+            alert(`เกิดข้อผิดพลาด: ${err.message || err}`);
+        } finally {
+            setIsBulkLoading(false);
+        }
+    };
 
     const months = [
         'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -72,10 +120,20 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                             <button className="btn-icon" onClick={() => onMonthChange(1)}><ChevronRight size={18} /></button>
                         </div>
                     </div>
-                    <button className="btn btn-outline" onClick={onExport}>
-                        <Download size={18} />
-                        Export รอบนี้
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                            className="btn btn-outline"
+                            style={{ borderColor: 'var(--primary)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            onClick={() => setIsBulkOpen(true)}
+                        >
+                            <Plus size={18} />
+                            ป้อนสายรถด่วน (Bulk)
+                        </button>
+                        <button className="btn btn-outline" onClick={onExport}>
+                            <Download size={18} />
+                            Export รอบนี้
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -402,6 +460,120 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                                 ))}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {isBulkOpen && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '500px', maxHeight: '95vh', display: 'flex', flexDirection: 'column', borderRadius: '1.5rem', background: 'var(--glass-bg)', color: 'var(--text-main)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(24px)', boxShadow: 'var(--glass-shadow)' }}>
+                        <div className="header" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                            <div>
+                                <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '800' }}>
+                                    <Plus size={20} color="var(--primary)" /> ป้อนสายรถด่วน (Bulk Update)
+                                </h3>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>อัปเดตหรือเพิ่มราคาค่าเที่ยวสายรถรวดเดียวทั้งเดือน</p>
+                            </div>
+                            <button className="btn-icon" onClick={() => setIsBulkOpen(false)}><X size={24} /></button>
+                        </div>
+                        <form onSubmit={handleBulkSubmit} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            
+                            {/* เดือน/ปี */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-dim)' }}>เลือกเดือน / ปี</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <select
+                                        className="input-premium-compact"
+                                        style={{ height: '38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', padding: '0 10px', fontSize: '0.9rem' }}
+                                        value={bulkMonth}
+                                        onChange={(e) => setBulkMonth(parseInt(e.target.value))}
+                                    >
+                                        {months.map((m, idx) => (
+                                            <option key={idx} value={idx}>{m}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="input-premium-compact"
+                                        style={{ height: '38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', padding: '0 10px', fontSize: '0.9rem' }}
+                                        value={bulkYear}
+                                        onChange={(e) => setBulkYear(parseInt(e.target.value))}
+                                    >
+                                        {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map((y) => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* สายรถ */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-dim)' }}>สายรถ (เส้นทาง)</label>
+                                <input
+                                    type="text"
+                                    list="bulk-route-options"
+                                    className="input-premium-compact"
+                                    style={{ height: '38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', padding: '0 12px', fontSize: '0.9rem', width: '100%' }}
+                                    placeholder="เช่น 522..."
+                                    value={bulkRoute}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setBulkRoute(val);
+                                        const cleanVal = val.trim();
+                                        if (routePresets && routePresets[cleanVal]) {
+                                            setBulkPrice(routePresets[cleanVal].price || '');
+                                        }
+                                    }}
+                                />
+                                <datalist id="bulk-route-options">
+                                    {routePresets && Object.keys(routePresets).map(route => (
+                                        <option key={route} value={route} />
+                                    ))}
+                                </datalist>
+                            </div>
+
+                            {/* จำนวนเงิน */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-dim)' }}>จำนวนเงินค่าเที่ยวตายตัว (บาท)</label>
+                                <input
+                                    type="number"
+                                    className="input-premium-compact"
+                                    style={{ height: '38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', padding: '0 12px', fontSize: '0.9rem', width: '100%' }}
+                                    placeholder="ระบุจำนวนเงินค่าเที่ยว..."
+                                    value={bulkPrice}
+                                    onChange={(e) => setBulkPrice(e.target.value)}
+                                />
+                            </div>
+
+                            {/* ปุ่มกดยืนยัน */}
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    style={{ padding: '0.5rem 1.5rem', height: '40px' }}
+                                    onClick={() => setIsBulkOpen(false)}
+                                    disabled={isBulkLoading}
+                                >
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    style={{
+                                        padding: '0.5rem 1.5rem',
+                                        height: '40px',
+                                        background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        borderRadius: '8px'
+                                    }}
+                                    disabled={isBulkLoading}
+                                >
+                                    {isBulkLoading ? 'กำลังบันทึก...' : 'บันทึกพร้อมกันทั้งหมด'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
