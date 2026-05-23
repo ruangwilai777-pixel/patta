@@ -112,8 +112,8 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
             const basketShare = items.reduce((sum, t) => sum + p(t.basketShare), 0);
             const staffShare = items.reduce((sum, t) => sum + p(t.staffShare), 0);
             
-            // Recalculate profit using the standard formula
-            const profit = (price + basket) - (fuel + wage + maintenance + basketShare);
+            // Recalculate profit using the standard accounting formula
+            const profit = (price + (basket - basketShare)) - fuel - wage - maintenance;
 
             // Collect bill URLs (take first non-null or combine them)
             const fuel_bill_url = items.map(t => t.fuel_bill_url).find(u => u) || null;
@@ -392,7 +392,7 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                                         <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--danger)' }}>
                                             {trip.basketShare > 0 ? trip.basketShare.toLocaleString() : '-'}
                                         </td>
-                                        <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--warning)' }}>
+                                        <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>
                                             {trip.staffShare > 0 ? trip.staffShare.toLocaleString() : '-'}
                                         </td>
                                         <td style={{ padding: '0.5rem', textAlign: 'right' }}>
@@ -486,7 +486,7 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                                             <div style={{ fontSize: '0.6rem', opacity: 0.6, marginBottom: '-2px' }}>แบ่ง</div>
                                             ฿{totals.basketShare.toLocaleString()}
                                         </td>
-                                        <td style={{ ...totalCellStyles, color: 'var(--warning)' }}>
+                                        <td style={{ ...totalCellStyles, color: 'white' }}>
                                             <div style={{ fontSize: '0.6rem', opacity: 0.6, marginBottom: '-2px' }}>เบิก</div>
                                             ฿{totals.staffShare.toLocaleString()}
                                         </td>
