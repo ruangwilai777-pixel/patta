@@ -5,7 +5,7 @@ import SalarySlip from './SalarySlip';
 const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExport, onSelectDate, onEditTrip, onDeleteTrip, cnDeductions, setCnDeductions, showSlips = true, onlySlips = false }) => {
     const [selectedDriverForSlip, setSelectedDriverForSlip] = React.useState(null);
     const [selectedDriverForHistory, setSelectedDriverForHistory] = React.useState(null);
-    const [viewMode, setViewMode] = React.useState('overview');
+    const [viewMode, setViewMode] = React.useState('daily');
 
     const months = [
         'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
