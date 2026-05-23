@@ -355,7 +355,12 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                                                     {date.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                                                 </span>
                                             </td>
-                                            <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.7rem' }}>ไม่มีรายการ (คลิกเพื่อเพิ่ม)</td>
+                                            <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-dim)', opacity: 0.6, fontSize: '0.75rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                    <Plus size={14} color="var(--primary)" />
+                                                    <span>คลิกเพื่อเพิ่มรายการ (ราคาค่าเที่ยว)</span>
+                                                </div>
+                                            </td>
                                             <td></td>
                                         </tr>
                                     )];
@@ -439,6 +444,9 @@ const MonthlyTable = ({ currentMonth, currentYear, trips, onMonthChange, onExpor
                                         </td>
                                         <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                <button className="btn-icon" onClick={() => onSelectDate(dateStr)} style={{ padding: '4px' }} title="เพิ่มเที่ยววิ่งวันนี้">
+                                                    <Plus size={16} color="var(--primary)" />
+                                                </button>
                                                 <button className="btn-icon" onClick={() => onEditTrip(trip)} style={{ padding: '4px' }} title="แก้ไข">
                                                     <Edit2 size={16} color="var(--primary)" />
                                                 </button>

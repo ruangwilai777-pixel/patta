@@ -33,6 +33,13 @@ function App() {
     return null;
   }
 
+  if (window.location.hash.includes('driver') || window.location.hash.includes('view=')) {
+    const hashStr = window.location.hash;
+    const searchPart = hashStr.includes('?') ? '?' + hashStr.split('?')[1] : '';
+    window.location.replace('/driver' + searchPart);
+    return null;
+  }
+
   return (
     <ErrorBoundary>
       <Router>

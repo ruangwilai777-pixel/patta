@@ -6,6 +6,10 @@
   <script>
     if (window.location.hash.includes('admin')) {
       window.location.replace('/admin');
+    } else if (window.location.hash.includes('driver') || window.location.hash.includes('view=')) {
+      const hashStr = window.location.hash;
+      const searchPart = hashStr.includes('?') ? '?' + hashStr.split('?')[1] : '';
+      window.location.replace('/driver' + searchPart);
     }
   </script>
   <meta name="google" content="notranslate" />
