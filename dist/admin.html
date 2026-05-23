@@ -63,16 +63,16 @@
     <meta name="apple-mobile-web-app-title" content="แอดมินภัทธา" />
     <meta name="theme-color" content="#1e293b" />
     <title>Admin - Patta Transport</title>
-  <script type="module" crossorigin src="/assets/main-DZYDfICY.js"></script>
+  <script type="module" crossorigin src="/assets/main-OQTm17gc.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/main-BsybPqgB.css">
 </head>
 
 <body>
     <div id="root"></div>
     <script>
-        // Force redirect to admin hash if not already there
-        if (!window.location.hash.includes('admin')) {
-            window.location.hash = '#/admin';
+        // If there is an old admin hash, rewrite the URL cleanly
+        if (window.location.hash.includes('admin')) {
+            window.history.replaceState(null, '', '/admin');
         }
     </script>
     <script>

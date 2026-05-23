@@ -69,9 +69,9 @@
 <body>
     <div id="root"></div>
     <script>
-        // Force redirect to admin hash if not already there
-        if (!window.location.hash.includes('admin')) {
-            window.location.hash = '#/admin';
+        // If there is an old admin hash, rewrite the URL cleanly
+        if (window.location.hash.includes('admin')) {
+            window.history.replaceState(null, '', '/admin');
         }
     </script>
     <script>

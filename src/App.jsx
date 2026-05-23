@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import DriverEntry from './pages/DriverEntry';
 import './index.css';
@@ -32,8 +32,10 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<DriverEntry />} />
+          <Route path="/index.html" element={<DriverEntry />} />
           <Route path="/driver" element={<DriverEntry />} />
           <Route path="/admin" element={<Dashboard />} />
+          <Route path="/admin.html" element={<Dashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <InstallPrompt />
