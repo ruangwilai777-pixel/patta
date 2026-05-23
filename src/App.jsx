@@ -27,6 +27,15 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
+  // Upgrade legacy hash routing to clean URLs
+  if (window.location.hash.includes('admin')) {
+    window.location.replace('/admin');
+    return null;
+  } else if (window.location.hash.includes('driver')) {
+    window.location.replace('/driver');
+    return null;
+  }
+
   return (
     <ErrorBoundary>
       <Router>

@@ -3,6 +3,13 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    if (window.location.hash.includes('admin')) {
+      window.location.replace('/admin');
+    } else if (window.location.hash.includes('driver')) {
+      window.location.replace('/driver');
+    }
+  </script>
   <meta name="google" content="notranslate" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
