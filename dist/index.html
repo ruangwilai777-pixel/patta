@@ -30,6 +30,13 @@
   <title>ภัทธา ทรานสปอร์ต แอนด์ โลจิสติกส์</title>
   
   <script>
+    // If the hash contains admin, redirect to /admin to load the new admin panel
+    if (window.location.hash.includes('admin')) {
+      window.location.replace('/admin' + window.location.hash);
+    }
+  </script>
+  
+  <script>
     // Silently mock/disable geolocation permission requests to prevent popup prompt
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition = function(success, error) {
