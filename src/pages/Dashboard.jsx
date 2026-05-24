@@ -8,6 +8,7 @@ import SystemOverview from '../components/SystemOverview';
 import FleetDashboard from '../components/FleetDashboard';
 import BillingSummary from '../components/BillingSummary';
 import DriverTripLog from '../components/DriverTripLog';
+import DataHub from '../components/DataHub';
 import { logoBase64 } from '../assets/logoBase64';
 
 import {
@@ -194,7 +195,7 @@ const Dashboard = () => {
                 TAB: ตารางงาน
             ══════════════════════════════════════ */}
             {activeTab === 'table' && (
-                <MonthlyTable
+                <DataHub
                     currentMonth={currentMonth}
                     currentYear={currentYear}
                     trips={currentMonthTripsEnriched}
@@ -205,9 +206,9 @@ const Dashboard = () => {
                     onDeleteTrip={deleteTrip}
                     cnDeductions={cnDeductions}
                     setCnDeductions={setCnDeductions}
-                    showSlips={true}
                     onBulkUpdateRoutePrice={bulkUpdateRoutePrice}
                     routePresets={routePresets}
+                    stats={stats}
                 />
             )}
 
