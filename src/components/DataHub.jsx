@@ -59,7 +59,10 @@ const DataHub = ({
         const groups = {};
         trips.forEach(t => {
             const dateStr = t.date || '';
-            const driver = (t.driverName || t.driver_name || 'ไม่ระบุชื่อ').trim();
+            let driver = (t.driverName || t.driver_name || 'ไม่ระบุชื่อ').trim().replace(/\s+/g, ' ');
+            if (driver.includes('ภัทธา')) {
+                driver = 'นางสาว ภัทธา เรืองวิลัย';
+            }
             const key = `${dateStr}_${driver}`;
             if (!groups[key]) {
                 groups[key] = {
