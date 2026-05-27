@@ -9,6 +9,7 @@ import FleetDashboard from '../components/FleetDashboard';
 import BillingSummary from '../components/BillingSummary';
 import DriverTripLog from '../components/DriverTripLog';
 import DataHub from '../components/DataHub';
+import DriverEntry from './DriverEntry';
 import { logoBase64 } from '../assets/logoBase64';
 
 import {
@@ -22,6 +23,7 @@ import {
 const TABS = [
     { id: 'overview', label: 'ภาพรวมระบบ',   icon: LayoutDashboard },
     { id: 'table',    label: 'ตารางงาน',       icon: TableProperties },
+    { id: 'driver',   label: 'ลงงานคนขับ (+)', icon: Plus },
     { id: 'summary',  label: 'สรุปยอดคนขับ',  icon: Users },
 ];
 
@@ -209,6 +211,15 @@ const Dashboard = () => {
                     onBulkUpdateRoutePrice={bulkUpdateRoutePrice}
                     routePresets={routePresets}
                 />
+            )}
+
+            {/* ══════════════════════════════════════
+                TAB: ลงงานคนขับ (ปุ่มบวก)
+            ══════════════════════════════════════ */}
+            {activeTab === 'driver' && (
+                <div className="fade-in" style={{ background: 'transparent' }}>
+                    <DriverEntry />
+                </div>
             )}
 
             {/* ══════════════════════════════════════
