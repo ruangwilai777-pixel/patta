@@ -195,7 +195,7 @@ const Dashboard = () => {
                 TAB: ตารางงาน
             ══════════════════════════════════════ */}
             {activeTab === 'table' && (
-                <DataHub
+                <MonthlyTable
                     currentMonth={currentMonth}
                     currentYear={currentYear}
                     trips={currentMonthTripsEnriched}
@@ -208,7 +208,6 @@ const Dashboard = () => {
                     setCnDeductions={setCnDeductions}
                     onBulkUpdateRoutePrice={bulkUpdateRoutePrice}
                     routePresets={routePresets}
-                    stats={stats}
                 />
             )}
 
