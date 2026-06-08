@@ -245,27 +245,26 @@
     
   </script>
 
+    
+    
+
     <script>
-      // DOM Patch for user requests
+      // DOM Patch V2 for user requests (Targeting "ตารางงาน" / MonthlyTable)
       document.addEventListener('DOMContentLoaded', () => {
           // Add CSS overrides for colors
           const style = document.createElement('style');
           style.innerHTML = `
-            /* Adjust colors so they are not too glaring */
-            .trip-log-card, .glass-card { background: #fafafa !important; }
-            .trip-log-card table th, .trip-log-card table td { color: #334155 !important; }
-            .trip-log-card table th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
-            .table-row-hover td { color: #334155 !important; }
-            .total-box { background: #f8fafc !important; border-color: #e2e8f0 !important; }
-            .total-box div { color: #334155 !important; }
-            .total-box.highlight { background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
-            .total-box.highlight div, .total-box.highlight span { color: #0f172a !important; }
+            /* Adjust colors so they are not too glaring for MonthlyTable as well */
+            .glass-card { background: #fafafa !important; }
+            .trip-row-hover td, .table-row-hover td { color: #334155 !important; }
+            .table-container th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
             
-            /* Fix image alignment */
-            .table-row-hover td > div {
+            /* Fix image alignment for BOTH DriverTripLog and MonthlyTable */
+            .trip-row-hover td > div, .table-row-hover td > div {
               flex-direction: row-reverse !important;
               justify-content: flex-start !important;
             }
+            .trip-row-hover td > div > button, .trip-row-hover td > div > a,
             .table-row-hover td > div > button, .table-row-hover td > div > a {
               margin-right: 6px !important;
               margin-left: 0 !important;
@@ -274,8 +273,10 @@
           document.head.appendChild(style);
 
           setInterval(() => {
-              // 1. Add Fullscreen button to trip log cards
-              document.querySelectorAll('.trip-log-card').forEach(card => {
+              // 1. Add Fullscreen button to "ตารางงาน" (MonthlyTable)
+              // MonthlyTable is inside a .table-container which is inside a .glass-card
+              document.querySelectorAll('.table-container').forEach(container => {
+                  const card = container.closest('.glass-card') || container;
                   if (!card.dataset.fsBtn) {
                       card.dataset.fsBtn = "1";
                       card.style.position = 'relative';
@@ -290,6 +291,36 @@
                               btn.innerHTML = '✖ ย่อหน้าจอ';
                               card.style.overflow = 'auto';
                               card.style.padding = '20px';
+                              card.style.background = '#fff';
+                          } else {
+                              document.exitFullscreen();
+                          }
+                      };
+                      // If there is a header div in the card, put it there, otherwise put it in card
+                      let header = card.querySelector('.header');
+                      if(header) {
+                          header.style.position = 'relative';
+                          header.appendChild(btn);
+                      } else {
+                          card.appendChild(btn);
+                      }
+                  }
+              });
+
+              // Also apply fullscreen to trip-log-card (from previous patch just in case)
+              document.querySelectorAll('.trip-log-card').forEach(card => {
+                  if (!card.dataset.fsBtn) {
+                      card.dataset.fsBtn = "1";
+                      card.style.position = 'relative';
+                      const btn = document.createElement('button');
+                      btn.innerHTML = '⛶ ขยายเต็มจอ';
+                      btn.style.cssText = 'position: absolute; top: 12px; right: 15px; z-index: 1000; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;';
+                      btn.onclick = () => {
+                          if (!document.fullscreenElement) {
+                              card.requestFullscreen().catch(e=>{});
+                              btn.innerHTML = '✖ ย่อหน้าจอ';
+                              card.style.overflow = 'auto';
+                              card.style.padding = '20px';
                           } else {
                               document.exitFullscreen();
                           }
@@ -300,42 +331,125 @@
 
               // Update button text if exiting fullscreen via ESC key
               if (!document.fullscreenElement) {
-                  document.querySelectorAll('.trip-log-card button').forEach(btn => {
+                  document.querySelectorAll('button').forEach(btn => {
                       if (btn.innerHTML.includes('ย่อหน้าจอ')) {
                           btn.innerHTML = '⛶ ขยายเต็มจอ';
-                          const card = btn.closest('.trip-log-card');
-                          if(card) card.style.padding = '';
+                          const card = btn.closest('.glass-card') || btn.closest('.trip-log-card');
+                          if(card) {
+                              card.style.padding = '';
+                              card.style.background = '';
+                          }
                       }
                   });
               }
 
-              // 2. Fix route text (cut out driver names from route)
-              document.querySelectorAll('.table-row-hover td').forEach(td => {
-                  if (td.className.includes('col-route') || td.cellIndex === 2) {
-                      let textNode = td.querySelector('div') || td;
-                      let text = textNode.innerText;
-                      if (text && text !== '-' && !td.dataset.cleaned) {
-                          // Try to clean common names or redundant text
-                          let newText = text.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
-                                            .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ')
-                                            .trim();
+              // 2. Visually merge rows in MonthlyTable if same Date and same Driver
+              const tbodies = document.querySelectorAll('.table-container table tbody');
+              tbodies.forEach(tbody => {
+                  let rows = Array.from(tbody.querySelectorAll('tr.trip-row-hover'));
+                  if (rows.length === 0) return;
+                  
+                  let prevRow = null;
+                  let prevDate = null;
+                  let prevDriver = null;
+
+                  rows.forEach(row => {
+                      if (row.dataset.merged) return;
+
+                      let dateCell = row.cells[0];
+                      let driverCell = row.cells[1];
+                      if (!dateCell || !driverCell) return;
+
+                      let dateTxt = dateCell.innerText.trim();
+                      let driverTxt = driverCell.innerText.trim();
+
+                      if (dateTxt === prevDate && driverTxt === prevDriver && prevRow && !row.dataset.hidden) {
+                          // Merge this row into prevRow
                           
-                          // If there's a driver name in the DOM somewhere (e.g. parent table header)
-                          let driverNameSpan = document.querySelector('.trip-log-card h2 b');
-                          if (driverNameSpan) {
-                              let dName = driverNameSpan.innerText.trim().split(' ')[0];
+                          // Merge Route Name (Col 2) and strip driver name / redundant text
+                          let r1 = prevRow.cells[2].innerText.trim();
+                          let r2 = row.cells[2].innerText.trim();
+                          
+                          // Helper to clean route text
+                          let cleanRoute = (txt) => {
+                              let c = txt.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
+                                         .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ');
+                              let dName = prevDriver.split(' ')[0];
                               if (dName && dName.length > 2) {
-                                  newText = newText.replace(new RegExp(dName, 'g'), '').trim();
+                                  c = c.replace(new RegExp(dName, 'g'), '');
+                              }
+                              return c.trim();
+                          };
+                          
+                          r1 = cleanRoute(r1);
+                          r2 = cleanRoute(r2);
+                          
+                          let newRoute = [r1, r2].filter(r => r && r !== '-').join(', ');
+                          prevRow.cells[2].innerText = newRoute || '-';
+
+                          // Sum numeric columns (Cols 3 to 10)
+                          // 3: ราคา, 4: น้ำมัน, 5: ค่าจ้าง, 6: ค่าซ่อม, 7: ตะกร้า, 8: แบ่ง, 9: เบิก, 10: กำไร
+                          for (let i = 3; i <= 10; i++) {
+                              let c1 = prevRow.cells[i];
+                              let c2 = row.cells[i];
+                              if (!c1 || !c2) continue;
+
+                              let val1 = parseFloat(c1.innerText.replace(/,/g, '')) || 0;
+                              let val2 = parseFloat(c2.innerText.replace(/,/g, '')) || 0;
+                              let sum = val1 + val2;
+
+                              if (sum !== 0) {
+                                  let span = c1.querySelector('span');
+                                  let formatted = sum.toLocaleString();
+                                  if (span) span.innerText = formatted;
+                                  else {
+                                      // If it's pure text or inside a div
+                                      let div = c1.querySelector('div');
+                                      if (div) {
+                                          let s = div.querySelector('span');
+                                          if (s) s.innerText = formatted;
+                                      } else {
+                                          c1.innerText = formatted;
+                                      }
+                                  }
+                              }
+
+                              // Move icons/images from row to prevRow
+                              let icon = c2.querySelector('a.bill-icon-btn');
+                              if (icon) {
+                                  let targetDiv = c1.querySelector('div');
+                                  if (targetDiv && !targetDiv.querySelector('a.bill-icon-btn')) {
+                                      targetDiv.appendChild(icon.cloneNode(true));
+                                  }
                               }
                           }
-                          
-                          if (newText !== text) {
-                              textNode.innerText = newText || '-';
+
+                          // Also clone the delete/edit buttons? 
+                          // It's dangerous to merge "จัดการ" buttons because editing one will only edit the first trip.
+                          // But we can just hide the second row visually.
+                          row.style.display = 'none';
+                          row.dataset.hidden = "true";
+                      } else {
+                          // Clean the route name for the first row as well
+                          if (dateTxt !== '' && driverTxt !== '') {
+                              let r = row.cells[2].innerText.trim();
+                              let c = r.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
+                                       .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ');
+                              let dName = driverTxt.split(' ')[0];
+                              if (dName && dName.length > 2) {
+                                  c = c.replace(new RegExp(dName, 'g'), '');
+                              }
+                              row.cells[2].innerText = c.trim() || '-';
                           }
-                          td.dataset.cleaned = "1";
+
+                          if (dateTxt !== '') prevDate = dateTxt;
+                          if (driverTxt !== '') prevDriver = driverTxt;
+                          prevRow = row;
                       }
-                  }
+                      row.dataset.merged = "true";
+                  });
               });
+
           }, 1000);
       });
     </script>
