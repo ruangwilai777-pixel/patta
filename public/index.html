@@ -248,10 +248,13 @@
     
     
 
+    
+    
+
     <script>
-      // DOM Patch V2 for user requests (Targeting "ตารางงาน" / MonthlyTable)
+      // DOM Patch V3 for user requests (Targeting "ตารางงาน" / MonthlyTable and DriverTripLog layout)
       document.addEventListener('DOMContentLoaded', () => {
-          // Add CSS overrides for colors
+          // Add CSS overrides for colors and layout
           const style = document.createElement('style');
           style.innerHTML = `
             /* Adjust colors so they are not too glaring for MonthlyTable as well */
@@ -260,21 +263,44 @@
             .table-container th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
             
             /* Fix image alignment for BOTH DriverTripLog and MonthlyTable */
-            .trip-row-hover td > div, .table-row-hover td > div {
-              flex-direction: row-reverse !important;
-              justify-content: flex-start !important;
+            /* Use CSS Grid to lock the icon to a 24px column on the right, keeping numbers perfectly aligned */
+            .table-row-hover td:nth-child(n+4) > div,
+            .trip-row-hover td:nth-child(n+3) > div {
+              display: grid !important;
+              grid-template-columns: 1fr 24px !important;
+              align-items: center !important;
+              gap: 4px !important;
+              width: 100% !important;
             }
-            .trip-row-hover td > div > button, .trip-row-hover td > div > a,
-            .table-row-hover td > div > button, .table-row-hover td > div > a {
-              margin-right: 6px !important;
-              margin-left: 0 !important;
+            .table-row-hover td:nth-child(n+4) > div > span,
+            .trip-row-hover td:nth-child(n+3) > div > span {
+              text-align: right !important;
+              display: block !important;
+              width: 100% !important;
+            }
+            .table-row-hover td:nth-child(n+4) > div > button,
+            .table-row-hover td:nth-child(n+4) > div > a,
+            .trip-row-hover td:nth-child(n+3) > div > button,
+            .trip-row-hover td:nth-child(n+3) > div > a {
+              margin: 0 !important;
+              justify-self: center !important;
+              /* reset the row-reverse overrides if any */
+            }
+
+            /* Align Totals with the Grid in DriverTripLog */
+            .trip-log-card tbody tr:last-child td:nth-child(n+2) {
+              padding-right: 36px !important;
+            }
+
+            /* Ensure generic flex overrides from previous patch are removed */
+            .trip-row-hover td > div, .table-row-hover td > div {
+              flex-direction: row !important;
             }
           `;
           document.head.appendChild(style);
 
           setInterval(() => {
               // 1. Add Fullscreen button to "ตารางงาน" (MonthlyTable)
-              // MonthlyTable is inside a .table-container which is inside a .glass-card
               document.querySelectorAll('.table-container').forEach(container => {
                   const card = container.closest('.glass-card') || container;
                   if (!card.dataset.fsBtn) {
@@ -296,7 +322,6 @@
                               document.exitFullscreen();
                           }
                       };
-                      // If there is a header div in the card, put it there, otherwise put it in card
                       let header = card.querySelector('.header');
                       if(header) {
                           header.style.position = 'relative';
@@ -307,7 +332,7 @@
                   }
               });
 
-              // Also apply fullscreen to trip-log-card (from previous patch just in case)
+              // Apply fullscreen to trip-log-card
               document.querySelectorAll('.trip-log-card').forEach(card => {
                   if (!card.dataset.fsBtn) {
                       card.dataset.fsBtn = "1";
@@ -329,7 +354,6 @@
                   }
               });
 
-              // Update button text if exiting fullscreen via ESC key
               if (!document.fullscreenElement) {
                   document.querySelectorAll('button').forEach(btn => {
                       if (btn.innerHTML.includes('ย่อหน้าจอ')) {
@@ -364,13 +388,10 @@
                       let driverTxt = driverCell.innerText.trim();
 
                       if (dateTxt === prevDate && driverTxt === prevDriver && prevRow && !row.dataset.hidden) {
-                          // Merge this row into prevRow
-                          
-                          // Merge Route Name (Col 2) and strip driver name / redundant text
+                          // Merge Route Name
                           let r1 = prevRow.cells[2].innerText.trim();
                           let r2 = row.cells[2].innerText.trim();
                           
-                          // Helper to clean route text
                           let cleanRoute = (txt) => {
                               let c = txt.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
                                          .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ');
@@ -387,8 +408,7 @@
                           let newRoute = [r1, r2].filter(r => r && r !== '-').join(', ');
                           prevRow.cells[2].innerText = newRoute || '-';
 
-                          // Sum numeric columns (Cols 3 to 10)
-                          // 3: ราคา, 4: น้ำมัน, 5: ค่าจ้าง, 6: ค่าซ่อม, 7: ตะกร้า, 8: แบ่ง, 9: เบิก, 10: กำไร
+                          // Sum numeric columns
                           for (let i = 3; i <= 10; i++) {
                               let c1 = prevRow.cells[i];
                               let c2 = row.cells[i];
@@ -403,7 +423,6 @@
                                   let formatted = sum.toLocaleString();
                                   if (span) span.innerText = formatted;
                                   else {
-                                      // If it's pure text or inside a div
                                       let div = c1.querySelector('div');
                                       if (div) {
                                           let s = div.querySelector('span');
@@ -414,23 +433,18 @@
                                   }
                               }
 
-                              // Move icons/images from row to prevRow
-                              let icon = c2.querySelector('a.bill-icon-btn');
+                              let icon = c2.querySelector('a.bill-icon-btn, button');
                               if (icon) {
                                   let targetDiv = c1.querySelector('div');
-                                  if (targetDiv && !targetDiv.querySelector('a.bill-icon-btn')) {
+                                  if (targetDiv && !targetDiv.querySelector('a.bill-icon-btn, button')) {
                                       targetDiv.appendChild(icon.cloneNode(true));
                                   }
                               }
                           }
 
-                          // Also clone the delete/edit buttons? 
-                          // It's dangerous to merge "จัดการ" buttons because editing one will only edit the first trip.
-                          // But we can just hide the second row visually.
                           row.style.display = 'none';
                           row.dataset.hidden = "true";
                       } else {
-                          // Clean the route name for the first row as well
                           if (dateTxt !== '' && driverTxt !== '') {
                               let r = row.cells[2].innerText.trim();
                               let c = r.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
