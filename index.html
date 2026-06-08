@@ -260,49 +260,57 @@
     
     
 
+    
+    
+
     <script>
-      // DOM Patch V6 FINAL - Correct selectors for trip-log-table-container and table-row-hover
+      // DOM Patch V7 - Headers single line, icons absolute, no negative wage
       document.addEventListener('DOMContentLoaded', () => {
           const style = document.createElement('style');
-          style.textContent = [
-            // Softer colors
-            '.glass-card { background: #fafafa !important; }',
+          style.textContent = `
+            /* Headers: single line, no wrapping */
+            .trip-log-table-container thead th {
+              white-space: nowrap !important;
+              font-size: 10px !important;
+              padding: 8px 4px !important;
+            }
 
-            // ---- KEY FIX: data cells with icon use grid [number | icon(28px)] ----
-            // The data cells use inline div with display:flex. Override to grid.
-            '.trip-log-table-container tbody td > div[style*="flex"] {',
-            '  display: grid !important;',
-            '  grid-template-columns: 1fr 18px !important;',
-            '  align-items: center !important;',
-            '  gap: 2px !important;',
-            '}',
+            /* Data cells: relative so icon can be absolute */
+            .trip-log-table-container tbody td {
+              position: relative !important;
+            }
 
-            // Number span stays right-aligned
-            '.trip-log-table-container tbody td > div > span { text-align: right !important; }',
+            /* The flex div inside data cells: keep number right-aligned, leave space for icon */
+            .trip-log-table-container tbody td > div[style*="flex"] {
+              padding-right: 14px !important;
+              position: relative !important;
+            }
 
-            // Icon button locked to its 18px slot
-            '.trip-log-table-container tbody td > div > button {',
-            '  margin: 0 !important; padding: 0 !important; justify-self: center !important;',
-            '}',
+            /* Icon button: position absolute to the right so it doesn't push numbers */
+            .trip-log-table-container tbody td > div[style*="flex"] > button {
+              position: absolute !important;
+              right: -2px !important;
+              top: 50% !important;
+              transform: translateY(-50%) !important;
+              margin: 0 !important;
+            }
 
-            // ---- Header cells: add right-padding to match the 18px+2px icon column ----
-            // Columns from 4th onward (ค่าเที่ยว, ค่าแรง, ตะกร้า, แบ่ง, น้ำมัน, ค่าซ่อม, เบิกเงิน)
-            '.trip-log-table-container thead th:nth-child(n+4) {',
-            '  padding-right: 22px !important;',
-            '}',
+            /* Footer totals: match the same padding for alignment */
+            .trip-log-table-container tfoot td {
+              padding-right: 4px !important;
+            }
 
-            // ---- Footer/Total row: same padding to align totals ----
-            '.trip-log-table-container tfoot td:nth-child(n+4) {',
-            '  padding-right: 22px !important;',
-            '}',
-
-            // Fullscreen background
-            '.trip-log-card:fullscreen { background: #fff !important; overflow: auto !important; padding: 20px !important; }'
-          ].join('\n');
+            /* Fullscreen */
+            .trip-log-card:fullscreen {
+              background: #fff !important;
+              overflow: auto !important;
+              padding: 20px !important;
+            }
+          `;
           document.head.appendChild(style);
 
           setInterval(() => {
-              // Fullscreen for trip-log-card
+              // Fullscreen button
               document.querySelectorAll('.trip-log-card').forEach(card => {
                   if (card.dataset.fsBtn) return;
                   card.dataset.fsBtn = "1";
@@ -321,12 +329,31 @@
                   card.appendChild(btn);
               });
 
-              // ESC key reset
+              // ESC reset
               if (!document.fullscreenElement) {
                   document.querySelectorAll('button').forEach(btn => {
                       if (btn.textContent.includes('ย่อหน้าจอ')) btn.textContent = '⛶ ขยายเต็มจอ';
                   });
               }
+
+              // Fix negative wage values: find all table-row-hover rows
+              // Column order: 0=วันที่, 1=วัน, 2=สายงาน, 3=ค่าเที่ยว, 4=ค่าแรง, 5=ตะกร้าบ., 6=แบ่ง, 7=น้ำมัน, 8=ค่าซ่อม, 9=เบิกเงิน
+              document.querySelectorAll('.trip-log-table-container tbody tr.table-row-hover').forEach(row => {
+                  if (row.dataset.fixedNeg) return;
+                  // Fix columns 3-9: remove negative sign from displayed values
+                  for (let i = 3; i <= 9; i++) {
+                      const td = row.cells[i];
+                      if (!td) continue;
+                      const span = td.querySelector('span');
+                      if (span) {
+                          let txt = span.textContent.trim();
+                          if (txt.startsWith('-') && txt !== '-') {
+                              span.textContent = txt.replace(/^-/, '');
+                          }
+                      }
+                  }
+                  row.dataset.fixedNeg = "1";
+              });
           }, 1200);
       });
     </script>
