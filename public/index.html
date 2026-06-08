@@ -179,6 +179,29 @@
         border-radius: 12px !important;
       }
     }
+  
+    /* Hide the edit column (11th column) in the admin's detailed driver trip log */
+    .trip-log-card table th:nth-child(11),
+    .trip-log-card table td:nth-child(11) {
+      display: none !important;
+    }
+    
+    /* Balance column widths to look more spacious and readable */
+    .trip-log-card table th.col-narrow,
+    .trip-log-card table th.col-mid {
+      width: auto !important;
+    }
+
+    .trip-log-card table th:nth-child(n+4),
+    .trip-log-card table td:nth-child(n+4) {
+      padding-right: 8px !important;
+    }
+
+    /* Prevent the 'สายงาน' column from taking too much space */
+    .trip-log-card table th.col-route {
+      width: 20% !important;
+    }
+    
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
