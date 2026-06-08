@@ -6,14 +6,10 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [react()],
   build: {
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        admin: resolve(__dirname, 'admin.html')
-      },
-      output: {
-        entryFileNames: `assets/[name]-[hash].js`,
-        chunkFileNames: `assets/[name]-[hash].js`,
-        assetFileNames: `assets/[name]-[hash].[ext]`
+        dummy: resolve(__dirname, 'dummy.html')
       }
     }
   }
