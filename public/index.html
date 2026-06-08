@@ -263,41 +263,38 @@
     
     
 
+    
+    
+
     <script>
-      // DOM Patch V7 - Headers single line, icons absolute, no negative wage
+      // DOM Patch V8 - Zero-offset icon positioning for perfect header alignment
       document.addEventListener('DOMContentLoaded', () => {
           const style = document.createElement('style');
           style.textContent = `
-            /* Headers: single line, no wrapping */
+            /* Headers: single line, no wrapping, NO extra padding */
             .trip-log-table-container thead th {
               white-space: nowrap !important;
-              font-size: 10px !important;
-              padding: 8px 4px !important;
             }
 
-            /* Data cells: relative so icon can be absolute */
+            /* Data cells: relative positioning anchor for icons */
             .trip-log-table-container tbody td {
               position: relative !important;
             }
 
-            /* The flex div inside data cells: keep number right-aligned, leave space for icon */
+            /* The flex div: remove gap so number takes full width as if no icon */
             .trip-log-table-container tbody td > div[style*="flex"] {
-              padding-right: 14px !important;
-              position: relative !important;
+              gap: 0px !important;
             }
 
-            /* Icon button: position absolute to the right so it doesn't push numbers */
+            /* Icon button: absolute position, floats to the right edge of the cell */
+            /* This means it does NOT push the number left at all */
             .trip-log-table-container tbody td > div[style*="flex"] > button {
               position: absolute !important;
-              right: -2px !important;
+              right: 1px !important;
               top: 50% !important;
               transform: translateY(-50%) !important;
               margin: 0 !important;
-            }
-
-            /* Footer totals: match the same padding for alignment */
-            .trip-log-table-container tfoot td {
-              padding-right: 4px !important;
+              z-index: 2 !important;
             }
 
             /* Fullscreen */
@@ -336,11 +333,9 @@
                   });
               }
 
-              // Fix negative wage values: find all table-row-hover rows
-              // Column order: 0=วันที่, 1=วัน, 2=สายงาน, 3=ค่าเที่ยว, 4=ค่าแรง, 5=ตะกร้าบ., 6=แบ่ง, 7=น้ำมัน, 8=ค่าซ่อม, 9=เบิกเงิน
+              // Fix negative values in all numeric columns
               document.querySelectorAll('.trip-log-table-container tbody tr.table-row-hover').forEach(row => {
                   if (row.dataset.fixedNeg) return;
-                  // Fix columns 3-9: remove negative sign from displayed values
                   for (let i = 3; i <= 9; i++) {
                       const td = row.cells[i];
                       if (!td) continue;
