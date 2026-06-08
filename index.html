@@ -266,35 +266,59 @@
     
     
 
+    
+    
+
     <script>
-      // DOM Patch V8 - Zero-offset icon positioning for perfect header alignment
+      // DOM Patch V9 - Uniform padding approach: reserve right space for icon in ALL cells
       document.addEventListener('DOMContentLoaded', () => {
           const style = document.createElement('style');
           style.textContent = `
-            /* Headers: single line, no wrapping, NO extra padding */
-            .trip-log-table-container thead th {
+            /* === UNIFORM RIGHT-PADDING on ALL numeric columns (th, td, tfoot) === */
+            /* This reserves 16px on the right for the icon zone across ALL rows */
+            
+            /* Headers */
+            .trip-log-table-container thead th:nth-child(n+4) {
+              white-space: nowrap !important;
+              padding-right: 16px !important;
+              text-align: right !important;
+            }
+            /* First 3 headers stay as-is */
+            .trip-log-table-container thead th:nth-child(-n+3) {
               white-space: nowrap !important;
             }
 
-            /* Data cells: relative positioning anchor for icons */
-            .trip-log-table-container tbody td {
+            /* Data cells - ALL numeric columns get uniform padding */
+            .trip-log-table-container tbody td:nth-child(n+4) {
               position: relative !important;
+              padding-right: 16px !important;
             }
 
-            /* The flex div: remove gap so number takes full width as if no icon */
+            /* The flex div inside data cells: fill full width, right-align content */
             .trip-log-table-container tbody td > div[style*="flex"] {
               gap: 0px !important;
+              width: 100% !important;
+              justify-content: flex-end !important;
             }
 
-            /* Icon button: absolute position, floats to the right edge of the cell */
-            /* This means it does NOT push the number left at all */
+            /* Number span: takes full width */
+            .trip-log-table-container tbody td > div[style*="flex"] > span {
+              text-align: right !important;
+            }
+
+            /* Icon button: absolute in the reserved 16px right zone */
             .trip-log-table-container tbody td > div[style*="flex"] > button {
               position: absolute !important;
-              right: 1px !important;
+              right: 2px !important;
               top: 50% !important;
               transform: translateY(-50%) !important;
               margin: 0 !important;
               z-index: 2 !important;
+            }
+
+            /* Footer/Total row */
+            .trip-log-table-container tfoot td:nth-child(n+4) {
+              padding-right: 16px !important;
             }
 
             /* Fullscreen */
@@ -325,15 +349,13 @@
                   };
                   card.appendChild(btn);
               });
-
-              // ESC reset
               if (!document.fullscreenElement) {
                   document.querySelectorAll('button').forEach(btn => {
                       if (btn.textContent.includes('ย่อหน้าจอ')) btn.textContent = '⛶ ขยายเต็มจอ';
                   });
               }
 
-              // Fix negative values in all numeric columns
+              // Fix negative values
               document.querySelectorAll('.trip-log-table-container tbody tr.table-row-hover').forEach(row => {
                   if (row.dataset.fixedNeg) return;
                   for (let i = 3; i <= 9; i++) {
