@@ -244,6 +244,102 @@
 
     
   </script>
+
+    <script>
+      // DOM Patch for user requests
+      document.addEventListener('DOMContentLoaded', () => {
+          // Add CSS overrides for colors
+          const style = document.createElement('style');
+          style.innerHTML = `
+            /* Adjust colors so they are not too glaring */
+            .trip-log-card, .glass-card { background: #fafafa !important; }
+            .trip-log-card table th, .trip-log-card table td { color: #334155 !important; }
+            .trip-log-card table th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
+            .table-row-hover td { color: #334155 !important; }
+            .total-box { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+            .total-box div { color: #334155 !important; }
+            .total-box.highlight { background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+            .total-box.highlight div, .total-box.highlight span { color: #0f172a !important; }
+            
+            /* Fix image alignment */
+            .table-row-hover td > div {
+              flex-direction: row-reverse !important;
+              justify-content: flex-start !important;
+            }
+            .table-row-hover td > div > button, .table-row-hover td > div > a {
+              margin-right: 6px !important;
+              margin-left: 0 !important;
+            }
+          `;
+          document.head.appendChild(style);
+
+          setInterval(() => {
+              // 1. Add Fullscreen button to trip log cards
+              document.querySelectorAll('.trip-log-card').forEach(card => {
+                  if (!card.dataset.fsBtn) {
+                      card.dataset.fsBtn = "1";
+                      card.style.position = 'relative';
+                      const btn = document.createElement('button');
+                      btn.innerHTML = '⛶ ขยายเต็มจอ';
+                      btn.style.cssText = 'position: absolute; top: 12px; right: 15px; z-index: 1000; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
+                      btn.onmouseover = () => btn.style.background = '#e2e8f0';
+                      btn.onmouseout = () => btn.style.background = '#f1f5f9';
+                      btn.onclick = () => {
+                          if (!document.fullscreenElement) {
+                              card.requestFullscreen().catch(err => {});
+                              btn.innerHTML = '✖ ย่อหน้าจอ';
+                              card.style.overflow = 'auto';
+                              card.style.padding = '20px';
+                          } else {
+                              document.exitFullscreen();
+                          }
+                      };
+                      card.appendChild(btn);
+                  }
+              });
+
+              // Update button text if exiting fullscreen via ESC key
+              if (!document.fullscreenElement) {
+                  document.querySelectorAll('.trip-log-card button').forEach(btn => {
+                      if (btn.innerHTML.includes('ย่อหน้าจอ')) {
+                          btn.innerHTML = '⛶ ขยายเต็มจอ';
+                          const card = btn.closest('.trip-log-card');
+                          if(card) card.style.padding = '';
+                      }
+                  });
+              }
+
+              // 2. Fix route text (cut out driver names from route)
+              document.querySelectorAll('.table-row-hover td').forEach(td => {
+                  if (td.className.includes('col-route') || td.cellIndex === 2) {
+                      let textNode = td.querySelector('div') || td;
+                      let text = textNode.innerText;
+                      if (text && text !== '-' && !td.dataset.cleaned) {
+                          // Try to clean common names or redundant text
+                          let newText = text.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
+                                            .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ')
+                                            .trim();
+                          
+                          // If there's a driver name in the DOM somewhere (e.g. parent table header)
+                          let driverNameSpan = document.querySelector('.trip-log-card h2 b');
+                          if (driverNameSpan) {
+                              let dName = driverNameSpan.innerText.trim().split(' ')[0];
+                              if (dName && dName.length > 2) {
+                                  newText = newText.replace(new RegExp(dName, 'g'), '').trim();
+                              }
+                          }
+                          
+                          if (newText !== text) {
+                              textNode.innerText = newText || '-';
+                          }
+                          td.dataset.cleaned = "1";
+                      }
+                  }
+              });
+          }, 1000);
+      });
+    </script>
+    
 </body>
 
 </html>
