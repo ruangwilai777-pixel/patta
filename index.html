@@ -251,386 +251,83 @@
     
     
 
-    <script>
-      // DOM Patch V3 for user requests (Targeting "ตารางงาน" / MonthlyTable and DriverTripLog layout)
-      document.addEventListener('DOMContentLoaded', () => {
-          // Add CSS overrides for colors and layout
-          const style = document.createElement('style');
-          style.innerHTML = `
-            /* Adjust colors so they are not too glaring for MonthlyTable as well */
-            .glass-card { background: #fafafa !important; }
-            .trip-row-hover td, .table-row-hover td { color: #334155 !important; }
-            .table-container th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
-            
-            /* Fix image alignment for BOTH DriverTripLog and MonthlyTable */
-            /* Use CSS Grid to lock the icon to a 24px column on the right, keeping numbers perfectly aligned */
-            .table-row-hover td:nth-child(n+4) > div,
-            .trip-row-hover td:nth-child(n+3) > div {
-              display: grid !important;
-              grid-template-columns: 1fr 24px !important;
-              align-items: center !important;
-              gap: 4px !important;
-              width: 100% !important;
-            }
-            .table-row-hover td:nth-child(n+4) > div > span,
-            .trip-row-hover td:nth-child(n+3) > div > span {
-              text-align: right !important;
-              display: block !important;
-              width: 100% !important;
-            }
-            .table-row-hover td:nth-child(n+4) > div > button,
-            .table-row-hover td:nth-child(n+4) > div > a,
-            .trip-row-hover td:nth-child(n+3) > div > button,
-            .trip-row-hover td:nth-child(n+3) > div > a {
-              margin: 0 !important;
-              justify-self: center !important;
-              /* reset the row-reverse overrides if any */
-            }
+    
+    
 
-            /* Align Totals with the Grid in DriverTripLog */
-            .trip-log-card tbody tr:last-child td:nth-child(n+2) {
-              padding-right: 36px !important;
-            }
+    
+    
 
-            /* Ensure generic flex overrides from previous patch are removed */
-            .trip-row-hover td > div, .table-row-hover td > div {
-              flex-direction: row !important;
-            }
-          `;
-          document.head.appendChild(style);
-
-          setInterval(() => {
-              // 1. Add Fullscreen button to "ตารางงาน" (MonthlyTable)
-              document.querySelectorAll('.table-container').forEach(container => {
-                  const card = container.closest('.glass-card') || container;
-                  if (!card.dataset.fsBtn) {
-                      card.dataset.fsBtn = "1";
-                      card.style.position = 'relative';
-                      const btn = document.createElement('button');
-                      btn.innerHTML = '⛶ ขยายเต็มจอ';
-                      btn.style.cssText = 'position: absolute; top: 12px; right: 15px; z-index: 1000; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
-                      btn.onmouseover = () => btn.style.background = '#e2e8f0';
-                      btn.onmouseout = () => btn.style.background = '#f1f5f9';
-                      btn.onclick = () => {
-                          if (!document.fullscreenElement) {
-                              card.requestFullscreen().catch(err => {});
-                              btn.innerHTML = '✖ ย่อหน้าจอ';
-                              card.style.overflow = 'auto';
-                              card.style.padding = '20px';
-                              card.style.background = '#fff';
-                          } else {
-                              document.exitFullscreen();
-                          }
-                      };
-                      let header = card.querySelector('.header');
-                      if(header) {
-                          header.style.position = 'relative';
-                          header.appendChild(btn);
-                      } else {
-                          card.appendChild(btn);
-                      }
-                  }
-              });
-
-              // Apply fullscreen to trip-log-card
-              document.querySelectorAll('.trip-log-card').forEach(card => {
-                  if (!card.dataset.fsBtn) {
-                      card.dataset.fsBtn = "1";
-                      card.style.position = 'relative';
-                      const btn = document.createElement('button');
-                      btn.innerHTML = '⛶ ขยายเต็มจอ';
-                      btn.style.cssText = 'position: absolute; top: 12px; right: 15px; z-index: 1000; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;';
-                      btn.onclick = () => {
-                          if (!document.fullscreenElement) {
-                              card.requestFullscreen().catch(e=>{});
-                              btn.innerHTML = '✖ ย่อหน้าจอ';
-                              card.style.overflow = 'auto';
-                              card.style.padding = '20px';
-                          } else {
-                              document.exitFullscreen();
-                          }
-                      };
-                      card.appendChild(btn);
-                  }
-              });
-
-              if (!document.fullscreenElement) {
-                  document.querySelectorAll('button').forEach(btn => {
-                      if (btn.innerHTML.includes('ย่อหน้าจอ')) {
-                          btn.innerHTML = '⛶ ขยายเต็มจอ';
-                          const card = btn.closest('.glass-card') || btn.closest('.trip-log-card');
-                          if(card) {
-                              card.style.padding = '';
-                              card.style.background = '';
-                          }
-                      }
-                  });
-              }
-
-              // 2. Visually merge rows in MonthlyTable if same Date and same Driver
-              const tbodies = document.querySelectorAll('.table-container table tbody');
-              tbodies.forEach(tbody => {
-                  let rows = Array.from(tbody.querySelectorAll('tr.trip-row-hover'));
-                  if (rows.length === 0) return;
-                  
-                  let prevRow = null;
-                  let prevDate = null;
-                  let prevDriver = null;
-
-                  rows.forEach(row => {
-                      if (row.dataset.merged) return;
-
-                      let dateCell = row.cells[0];
-                      let driverCell = row.cells[1];
-                      if (!dateCell || !driverCell) return;
-
-                      let dateTxt = dateCell.innerText.trim();
-                      let driverTxt = driverCell.innerText.trim();
-
-                      if (dateTxt === prevDate && driverTxt === prevDriver && prevRow && !row.dataset.hidden) {
-                          // Merge Route Name
-                          let r1 = prevRow.cells[2].innerText.trim();
-                          let r2 = row.cells[2].innerText.trim();
-                          
-                          let cleanRoute = (txt) => {
-                              let c = txt.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
-                                         .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ');
-                              let dName = prevDriver.split(' ')[0];
-                              if (dName && dName.length > 2) {
-                                  c = c.replace(new RegExp(dName, 'g'), '');
-                              }
-                              return c.trim();
-                          };
-                          
-                          r1 = cleanRoute(r1);
-                          r2 = cleanRoute(r2);
-                          
-                          let newRoute = [r1, r2].filter(r => r && r !== '-').join(', ');
-                          prevRow.cells[2].innerText = newRoute || '-';
-
-                          // Sum numeric columns
-                          for (let i = 3; i <= 10; i++) {
-                              let c1 = prevRow.cells[i];
-                              let c2 = row.cells[i];
-                              if (!c1 || !c2) continue;
-
-                              let val1 = parseFloat(c1.innerText.replace(/,/g, '')) || 0;
-                              let val2 = parseFloat(c2.innerText.replace(/,/g, '')) || 0;
-                              let sum = val1 + val2;
-
-                              if (sum !== 0) {
-                                  let span = c1.querySelector('span');
-                                  let formatted = sum.toLocaleString();
-                                  if (span) span.innerText = formatted;
-                                  else {
-                                      let div = c1.querySelector('div');
-                                      if (div) {
-                                          let s = div.querySelector('span');
-                                          if (s) s.innerText = formatted;
-                                      } else {
-                                          c1.innerText = formatted;
-                                      }
-                                  }
-                              }
-
-                              let icon = c2.querySelector('a.bill-icon-btn, button');
-                              if (icon) {
-                                  let targetDiv = c1.querySelector('div');
-                                  if (targetDiv && !targetDiv.querySelector('a.bill-icon-btn, button')) {
-                                      targetDiv.appendChild(icon.cloneNode(true));
-                                  }
-                              }
-                          }
-
-                          row.style.display = 'none';
-                          row.dataset.hidden = "true";
-                      } else {
-                          if (dateTxt !== '' && driverTxt !== '') {
-                              let r = row.cells[2].innerText.trim();
-                              let c = r.replace(/เบิกเงินล่วงหน้า/g, 'เบิกเงิน')
-                                       .replace(/ค่าซ่อมบำรุง/g, 'ซ่อมรถ');
-                              let dName = driverTxt.split(' ')[0];
-                              if (dName && dName.length > 2) {
-                                  c = c.replace(new RegExp(dName, 'g'), '');
-                              }
-                              row.cells[2].innerText = c.trim() || '-';
-                          }
-
-                          if (dateTxt !== '') prevDate = dateTxt;
-                          if (driverTxt !== '') prevDriver = driverTxt;
-                          prevRow = row;
-                      }
-                      row.dataset.merged = "true";
-                  });
-              });
-
-          }, 1000);
-      });
-    </script>
+    
     
 
     <script>
-      // DOM Patch V4 - Fix header alignment with data columns (icon offset)
+      // DOM Patch V6 FINAL - Correct selectors for trip-log-table-container and table-row-hover
       document.addEventListener('DOMContentLoaded', () => {
           const style = document.createElement('style');
-          style.innerHTML = `
-            /* Softer colors */
-            .glass-card { background: #fafafa !important; }
-            .trip-row-hover td, .table-row-hover td { color: #334155 !important; }
-            .table-container th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
+          style.textContent = [
+            // Softer colors
+            '.glass-card { background: #fafafa !important; }',
 
-            /* --- Data cells: icon AFTER the number, locked 28px column --- */
-            .table-row-hover td:nth-child(n+4) > div,
-            .trip-row-hover td:nth-child(n+3) > div {
-              display: grid !important;
-              grid-template-columns: 1fr 28px !important;
-              align-items: center !important;
-              gap: 2px !important;
-              width: 100% !important;
-            }
-            .table-row-hover td:nth-child(n+4) > div > span,
-            .trip-row-hover td:nth-child(n+3) > div > span {
-              text-align: right !important;
-              display: block !important;
-              width: 100% !important;
-            }
-            .table-row-hover td:nth-child(n+4) > div > a,
-            .table-row-hover td:nth-child(n+4) > div > button,
-            .trip-row-hover td:nth-child(n+3) > div > a,
-            .trip-row-hover td:nth-child(n+3) > div > button {
-              margin: 0 !important;
-              justify-self: center !important;
-            }
+            // ---- KEY FIX: data cells with icon use grid [number | icon(28px)] ----
+            // The data cells use inline div with display:flex. Override to grid.
+            '.trip-log-table-container tbody td > div[style*="flex"] {',
+            '  display: grid !important;',
+            '  grid-template-columns: 1fr 18px !important;',
+            '  align-items: center !important;',
+            '  gap: 2px !important;',
+            '}',
 
-            /* --- Header cells: add right-padding to match the 28px icon column --- */
-            .table-container table thead th:nth-child(n+4),
-            .trip-log-card table thead th:nth-child(n+3) {
-              padding-right: 36px !important;
-            }
+            // Number span stays right-aligned
+            '.trip-log-table-container tbody td > div > span { text-align: right !important; }',
 
-            /* --- Total row: also add right-padding so totals line up --- */
-            .table-container table tfoot td:nth-child(n+4),
-            .table-container table tbody tr:last-child td:nth-child(n+4),
-            .trip-log-card table tbody tr:last-child td:nth-child(n+3) {
-              padding-right: 36px !important;
-            }
+            // Icon button locked to its 18px slot
+            '.trip-log-table-container tbody td > div > button {',
+            '  margin: 0 !important; padding: 0 !important; justify-self: center !important;',
+            '}',
 
-            /* Remove old flex overrides */
-            .trip-row-hover td > div, .table-row-hover td > div {
-              flex-direction: row !important;
-            }
+            // ---- Header cells: add right-padding to match the 18px+2px icon column ----
+            // Columns from 4th onward (ค่าเที่ยว, ค่าแรง, ตะกร้า, แบ่ง, น้ำมัน, ค่าซ่อม, เบิกเงิน)
+            '.trip-log-table-container thead th:nth-child(n+4) {',
+            '  padding-right: 22px !important;',
+            '}',
 
-            /* Fullscreen background */
-            .glass-card:fullscreen, .trip-log-card:fullscreen {
-              background: #fff !important;
-              overflow: auto !important;
-              padding: 20px !important;
-            }
-          `;
+            // ---- Footer/Total row: same padding to align totals ----
+            '.trip-log-table-container tfoot td:nth-child(n+4) {',
+            '  padding-right: 22px !important;',
+            '}',
+
+            // Fullscreen background
+            '.trip-log-card:fullscreen { background: #fff !important; overflow: auto !important; padding: 20px !important; }'
+          ].join('\n');
           document.head.appendChild(style);
 
           setInterval(() => {
-              // Fullscreen buttons for table-container
-              document.querySelectorAll('.table-container').forEach(container => {
-                  const card = container.closest('.glass-card') || container;
-                  if (!card.dataset.fsBtn) {
-                      card.dataset.fsBtn = "1";
-                      card.style.position = 'relative';
-                      const btn = document.createElement('button');
-                      btn.innerHTML = '⛶ ขยายเต็มจอ';
-                      btn.style.cssText = 'position:absolute;top:12px;right:15px;z-index:1000;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);transition:all 0.2s;';
-                      btn.onmouseover = () => btn.style.background = '#e2e8f0';
-                      btn.onmouseout = () => btn.style.background = '#f1f5f9';
-                      btn.onclick = () => {
-                          if (!document.fullscreenElement) {
-                              card.requestFullscreen().catch(()=>{});
-                              btn.innerHTML = '✖ ย่อหน้าจอ';
-                          } else {
-                              document.exitFullscreen();
-                          }
-                      };
-                      card.appendChild(btn);
-                  }
-              });
-
               // Fullscreen for trip-log-card
               document.querySelectorAll('.trip-log-card').forEach(card => {
-                  if (!card.dataset.fsBtn) {
-                      card.dataset.fsBtn = "1";
-                      card.style.position = 'relative';
-                      const btn = document.createElement('button');
-                      btn.innerHTML = '⛶ ขยายเต็มจอ';
-                      btn.style.cssText = 'position:absolute;top:12px;right:15px;z-index:1000;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;';
-                      btn.onclick = () => {
-                          if (!document.fullscreenElement) {
-                              card.requestFullscreen().catch(()=>{});
-                              btn.innerHTML = '✖ ย่อหน้าจอ';
-                          } else {
-                              document.exitFullscreen();
-                          }
-                      };
-                      card.appendChild(btn);
-                  }
+                  if (card.dataset.fsBtn) return;
+                  card.dataset.fsBtn = "1";
+                  card.style.position = 'relative';
+                  const btn = document.createElement('button');
+                  btn.textContent = '⛶ ขยายเต็มจอ';
+                  btn.style.cssText = 'position:absolute;top:12px;right:15px;z-index:1000;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;';
+                  btn.onclick = () => {
+                      if (!document.fullscreenElement) {
+                          card.requestFullscreen().catch(()=>{});
+                          btn.textContent = '✖ ย่อหน้าจอ';
+                      } else {
+                          document.exitFullscreen();
+                      }
+                  };
+                  card.appendChild(btn);
               });
 
-              // Reset button text on ESC exit
+              // ESC key reset
               if (!document.fullscreenElement) {
                   document.querySelectorAll('button').forEach(btn => {
-                      if (btn.innerHTML.includes('ย่อหน้าจอ')) {
-                          btn.innerHTML = '⛶ ขยายเต็มจอ';
-                      }
+                      if (btn.textContent.includes('ย่อหน้าจอ')) btn.textContent = '⛶ ขยายเต็มจอ';
                   });
               }
-
-              // Row merging for MonthlyTable
-              document.querySelectorAll('.table-container table tbody').forEach(tbody => {
-                  let rows = Array.from(tbody.querySelectorAll('tr.trip-row-hover'));
-                  if (rows.length === 0) return;
-                  let prevRow = null, prevDate = null, prevDriver = null;
-
-                  rows.forEach(row => {
-                      if (row.dataset.merged) return;
-                      let dateCell = row.cells[0], driverCell = row.cells[1];
-                      if (!dateCell || !driverCell) return;
-                      let dateTxt = dateCell.innerText.trim();
-                      let driverTxt = driverCell.innerText.trim();
-
-                      let cleanRoute = (txt, drv) => {
-                          let c = txt.replace(/เบิกเงินล่วงหน้า/g,'เบิกเงิน').replace(/ค่าซ่อมบำรุง/g,'ซ่อมรถ');
-                          let dName = (drv||'').split(' ')[0];
-                          if (dName && dName.length > 2) c = c.replace(new RegExp(dName,'g'),'');
-                          return c.trim();
-                      };
-
-                      if (dateTxt === prevDate && driverTxt === prevDriver && prevRow && !row.dataset.hidden) {
-                          let r1 = cleanRoute(prevRow.cells[2].innerText.trim(), prevDriver);
-                          let r2 = cleanRoute(row.cells[2].innerText.trim(), prevDriver);
-                          prevRow.cells[2].innerText = [r1,r2].filter(r=>r&&r!=='-').join(', ') || '-';
-                          for (let i=3;i<=10;i++) {
-                              let c1=prevRow.cells[i], c2=row.cells[i];
-                              if (!c1||!c2) continue;
-                              let v1=parseFloat(c1.innerText.replace(/,/g,''))||0;
-                              let v2=parseFloat(c2.innerText.replace(/,/g,''))||0;
-                              let sum=v1+v2;
-                              if (sum!==0) {
-                                  let f=sum.toLocaleString();
-                                  let s=c1.querySelector('span'); if(s){s.innerText=f;}
-                                  else{let d=c1.querySelector('div');if(d){let ss=d.querySelector('span');if(ss)ss.innerText=f;}else c1.innerText=f;}
-                              }
-                              let icon=c2.querySelector('a.bill-icon-btn,button');
-                              if(icon){let td=c1.querySelector('div');if(td&&!td.querySelector('a.bill-icon-btn,button'))td.appendChild(icon.cloneNode(true));}
-                          }
-                          row.style.display='none'; row.dataset.hidden="true";
-                      } else {
-                          if (dateTxt!==''&&driverTxt!=='') row.cells[2].innerText=cleanRoute(row.cells[2].innerText.trim(),driverTxt)||'-';
-                          if (dateTxt!=='') prevDate=dateTxt;
-                          if (driverTxt!=='') prevDriver=driverTxt;
-                          prevRow=row;
-                      }
-                      row.dataset.merged="true";
-                  });
-              });
-          }, 1000);
+          }, 1200);
       });
     </script>
     
