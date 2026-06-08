@@ -211,21 +211,51 @@
 <body>
   <div id="root"></div>
   <script>
-    // Direct redirect to the new admin panel if the URL contains admin hash
+    // Monitor URL hash to inject a floating Switch Button on the old admin page
     (function() {
+      var btn = null;
       function checkHash() {
-        if (window.location.hash.includes('admin')) {
-          window.location.replace('/admin');
+        var isOldAdmin = window.location.hash.includes('admin');
+        if (isOldAdmin) {
+          if (!btn) {
+            btn = document.createElement('div');
+            btn.className = 'patta-glow-btn';
+            btn.style.cssText = 'position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 4px; gap: 4px; display: flex; align-items: center; z-index: 999999; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);';
+            
+            btn.innerHTML = `
+              <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; padding: 6px 14px; font-size: 12.5px; font-weight: 800; display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35); cursor: default; white-space: nowrap; height: 28px; box-sizing: border-box; line-height: 1;">
+                🟣 กำลังใช้งานเวอร์ชันเก่า
+              </div>
+              <a href="/admin" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; border-radius: 12px; padding: 6px 14px; font-size: 12.5px; font-weight: 800; text-decoration: none; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; height: 28px; box-sizing: border-box; line-height: 1;" 
+                 onmouseenter="this.style.background='rgba(16, 185, 129, 0.15)'; this.style.borderColor='rgba(16, 185, 129, 0.4)';" 
+                 onmouseleave="this.style.background='rgba(16, 185, 129, 0.06)'; this.style.borderColor='rgba(16, 185, 129, 0.2)';">
+                🔄 กลับไปเวอร์ชันใหม่
+              </a>
+            `;
+            
+            btn.onmouseenter = function() {
+              btn.style.transform = 'translateX(-50%) translateY(-3px) scale(1.05)';
+              btn.style.boxShadow = '0 12px 36px rgba(0, 0, 0, 0.6)';
+            };
+            btn.onmouseleave = function() {
+              btn.style.transform = 'translateX(-50%)';
+              btn.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.5)';
+            };
+            document.body.appendChild(btn);
+          }
+        } else {
+          if (btn) {
+            btn.remove();
+            btn = null;
+          }
         }
       }
       window.addEventListener('load', checkHash);
       window.addEventListener('hashchange', checkHash);
-      checkHash();
+      setInterval(checkHash, 1000);
     })();
-  </script>
-  
-  <script>
-    // Custom global touch-pinch gesture zoom and perfectly symmetrical floating controller for driver overlays (Billing, TripLog, Slip)
+
+    // Custom global touch-pinch gesture zoom and floating controller for driver overlays (Billing, TripLog, Slip)
     (function() {
       var zoomLevel = 1.0;
       var activeTarget = null;
@@ -285,23 +315,14 @@
           if (!zoomWidget) {
             zoomWidget = document.createElement('div');
             zoomWidget.className = 'no-print';
-            zoomWidget.style.cssText = 'position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 6px 14px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 999999; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; transition: all 0.3s ease;';
+            zoomWidget.style.cssText = 'position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 18px; padding: 6px 14px; gap: 10px; display: flex; align-items: center; z-index: 999999; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
             
             zoomWidget.innerHTML = [
-              // Left Group (64px total width)
-              '<div style="display: flex; align-items: center; gap: 8px; width: 64px; justify-content: flex-start;">',
-                '<button class="zoom-btn-reset" title="รีเซ็ต" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #818cf8; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">↺</button>',
-                '<button class="zoom-btn-minus" title="ซูมออก" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">-</button>',
-              '</div>',
-              
-              // Center Group
-              '<span class="zoom-txt" style="font-size: 12px; font-weight: 800; color: #f1f5f9; min-width: 76px; text-align: center; white-space: nowrap; letter-spacing: 0.5px;">ซูม: 100%</span>',
-              
-              // Right Group (64px total width)
-              '<div style="display: flex; align-items: center; gap: 8px; width: 64px; justify-content: flex-end;">',
-                '<button class="zoom-btn-plus" title="ซูมเข้า" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">+</button>',
-                '<button class="zoom-btn-info" title="คำแนะนำ" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fbbf24; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">💡</button>',
-              '</div>'
+              '<button class="zoom-btn-minus" style="background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent;">-</button>',
+              '<span class="zoom-txt" style="font-size: 11px; font-weight: 800; color: #e2e8f0; min-width: 60px; text-align: center; white-space: nowrap;">ซูม: 100%</span>',
+              '<button class="zoom-btn-plus" style="background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; outline: none; -webkit-tap-highlight-color: transparent;">+</button>',
+              '<button class="zoom-btn-reset" style="background: transparent; border: none; color: #818cf8; font-size: 10px; font-weight: 800; cursor: pointer; outline: none; margin-left: 4px; padding: 0 4px; -webkit-tap-highlight-color: transparent;">รีเซ็ต</button>',
+              '<span style="font-size: 9px; color: #94a3b8; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 8px; white-space: nowrap;">💡 กางนิ้วซูมได้</span>'
             ].join('');
 
             zoomWidget.querySelector('.zoom-btn-minus').onclick = function(ev) {
@@ -318,10 +339,6 @@
               ev.preventDefault();
               zoomLevel = 1.0;
               applyZoom(getActiveOverlay(), zoomLevel);
-            };
-            zoomWidget.querySelector('.zoom-btn-info').onclick = function(ev) {
-              ev.preventDefault();
-              alert("💡 คำแนะนำ: คุณสามารถใช้สองนิ้วกางบนหน้าจอเพื่อย่อ-ขยายซูมดูหน้านี้ได้เช่นกันครับ");
             };
 
             document.body.appendChild(zoomWidget);
