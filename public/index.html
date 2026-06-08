@@ -468,6 +468,172 @@
       });
     </script>
     
+
+    <script>
+      // DOM Patch V4 - Fix header alignment with data columns (icon offset)
+      document.addEventListener('DOMContentLoaded', () => {
+          const style = document.createElement('style');
+          style.innerHTML = `
+            /* Softer colors */
+            .glass-card { background: #fafafa !important; }
+            .trip-row-hover td, .table-row-hover td { color: #334155 !important; }
+            .table-container th { background: #f1f5f9 !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
+
+            /* --- Data cells: icon AFTER the number, locked 28px column --- */
+            .table-row-hover td:nth-child(n+4) > div,
+            .trip-row-hover td:nth-child(n+3) > div {
+              display: grid !important;
+              grid-template-columns: 1fr 28px !important;
+              align-items: center !important;
+              gap: 2px !important;
+              width: 100% !important;
+            }
+            .table-row-hover td:nth-child(n+4) > div > span,
+            .trip-row-hover td:nth-child(n+3) > div > span {
+              text-align: right !important;
+              display: block !important;
+              width: 100% !important;
+            }
+            .table-row-hover td:nth-child(n+4) > div > a,
+            .table-row-hover td:nth-child(n+4) > div > button,
+            .trip-row-hover td:nth-child(n+3) > div > a,
+            .trip-row-hover td:nth-child(n+3) > div > button {
+              margin: 0 !important;
+              justify-self: center !important;
+            }
+
+            /* --- Header cells: add right-padding to match the 28px icon column --- */
+            .table-container table thead th:nth-child(n+4),
+            .trip-log-card table thead th:nth-child(n+3) {
+              padding-right: 36px !important;
+            }
+
+            /* --- Total row: also add right-padding so totals line up --- */
+            .table-container table tfoot td:nth-child(n+4),
+            .table-container table tbody tr:last-child td:nth-child(n+4),
+            .trip-log-card table tbody tr:last-child td:nth-child(n+3) {
+              padding-right: 36px !important;
+            }
+
+            /* Remove old flex overrides */
+            .trip-row-hover td > div, .table-row-hover td > div {
+              flex-direction: row !important;
+            }
+
+            /* Fullscreen background */
+            .glass-card:fullscreen, .trip-log-card:fullscreen {
+              background: #fff !important;
+              overflow: auto !important;
+              padding: 20px !important;
+            }
+          `;
+          document.head.appendChild(style);
+
+          setInterval(() => {
+              // Fullscreen buttons for table-container
+              document.querySelectorAll('.table-container').forEach(container => {
+                  const card = container.closest('.glass-card') || container;
+                  if (!card.dataset.fsBtn) {
+                      card.dataset.fsBtn = "1";
+                      card.style.position = 'relative';
+                      const btn = document.createElement('button');
+                      btn.innerHTML = '⛶ ขยายเต็มจอ';
+                      btn.style.cssText = 'position:absolute;top:12px;right:15px;z-index:1000;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);transition:all 0.2s;';
+                      btn.onmouseover = () => btn.style.background = '#e2e8f0';
+                      btn.onmouseout = () => btn.style.background = '#f1f5f9';
+                      btn.onclick = () => {
+                          if (!document.fullscreenElement) {
+                              card.requestFullscreen().catch(()=>{});
+                              btn.innerHTML = '✖ ย่อหน้าจอ';
+                          } else {
+                              document.exitFullscreen();
+                          }
+                      };
+                      card.appendChild(btn);
+                  }
+              });
+
+              // Fullscreen for trip-log-card
+              document.querySelectorAll('.trip-log-card').forEach(card => {
+                  if (!card.dataset.fsBtn) {
+                      card.dataset.fsBtn = "1";
+                      card.style.position = 'relative';
+                      const btn = document.createElement('button');
+                      btn.innerHTML = '⛶ ขยายเต็มจอ';
+                      btn.style.cssText = 'position:absolute;top:12px;right:15px;z-index:1000;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;';
+                      btn.onclick = () => {
+                          if (!document.fullscreenElement) {
+                              card.requestFullscreen().catch(()=>{});
+                              btn.innerHTML = '✖ ย่อหน้าจอ';
+                          } else {
+                              document.exitFullscreen();
+                          }
+                      };
+                      card.appendChild(btn);
+                  }
+              });
+
+              // Reset button text on ESC exit
+              if (!document.fullscreenElement) {
+                  document.querySelectorAll('button').forEach(btn => {
+                      if (btn.innerHTML.includes('ย่อหน้าจอ')) {
+                          btn.innerHTML = '⛶ ขยายเต็มจอ';
+                      }
+                  });
+              }
+
+              // Row merging for MonthlyTable
+              document.querySelectorAll('.table-container table tbody').forEach(tbody => {
+                  let rows = Array.from(tbody.querySelectorAll('tr.trip-row-hover'));
+                  if (rows.length === 0) return;
+                  let prevRow = null, prevDate = null, prevDriver = null;
+
+                  rows.forEach(row => {
+                      if (row.dataset.merged) return;
+                      let dateCell = row.cells[0], driverCell = row.cells[1];
+                      if (!dateCell || !driverCell) return;
+                      let dateTxt = dateCell.innerText.trim();
+                      let driverTxt = driverCell.innerText.trim();
+
+                      let cleanRoute = (txt, drv) => {
+                          let c = txt.replace(/เบิกเงินล่วงหน้า/g,'เบิกเงิน').replace(/ค่าซ่อมบำรุง/g,'ซ่อมรถ');
+                          let dName = (drv||'').split(' ')[0];
+                          if (dName && dName.length > 2) c = c.replace(new RegExp(dName,'g'),'');
+                          return c.trim();
+                      };
+
+                      if (dateTxt === prevDate && driverTxt === prevDriver && prevRow && !row.dataset.hidden) {
+                          let r1 = cleanRoute(prevRow.cells[2].innerText.trim(), prevDriver);
+                          let r2 = cleanRoute(row.cells[2].innerText.trim(), prevDriver);
+                          prevRow.cells[2].innerText = [r1,r2].filter(r=>r&&r!=='-').join(', ') || '-';
+                          for (let i=3;i<=10;i++) {
+                              let c1=prevRow.cells[i], c2=row.cells[i];
+                              if (!c1||!c2) continue;
+                              let v1=parseFloat(c1.innerText.replace(/,/g,''))||0;
+                              let v2=parseFloat(c2.innerText.replace(/,/g,''))||0;
+                              let sum=v1+v2;
+                              if (sum!==0) {
+                                  let f=sum.toLocaleString();
+                                  let s=c1.querySelector('span'); if(s){s.innerText=f;}
+                                  else{let d=c1.querySelector('div');if(d){let ss=d.querySelector('span');if(ss)ss.innerText=f;}else c1.innerText=f;}
+                              }
+                              let icon=c2.querySelector('a.bill-icon-btn,button');
+                              if(icon){let td=c1.querySelector('div');if(td&&!td.querySelector('a.bill-icon-btn,button'))td.appendChild(icon.cloneNode(true));}
+                          }
+                          row.style.display='none'; row.dataset.hidden="true";
+                      } else {
+                          if (dateTxt!==''&&driverTxt!=='') row.cells[2].innerText=cleanRoute(row.cells[2].innerText.trim(),driverTxt)||'-';
+                          if (dateTxt!=='') prevDate=dateTxt;
+                          if (driverTxt!=='') prevDriver=driverTxt;
+                          prevRow=row;
+                      }
+                      row.dataset.merged="true";
+                  });
+              });
+          }, 1000);
+      });
+    </script>
+    
 </body>
 
 </html>
