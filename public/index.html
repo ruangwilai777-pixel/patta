@@ -1112,9 +1112,9 @@
                           detectedYear = null;
                           rawAiPresets = [];
 
-                          // Trigger page refresh if page has fetchPresets
-                          if (window.dispatchEvent) {
-                              window.dispatchEvent(new Event('refreshPresets'));
+                          // Refresh React presets state instantly
+                          if (window.fetchPresets) {
+                              await window.fetchPresets(targetMonth, targetYear);
                           }
 
                       } catch (err) {
