@@ -10,7 +10,7 @@
       "dest": "/assets/$1"
     },
     {
-      "src": "/(.*)",
+      "src": "/((?!admin|api/|assets/).*)",
       "dest": "/index.html"
     }
   ]
