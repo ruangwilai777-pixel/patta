@@ -2,15 +2,11 @@
   "cleanUrls": true,
   "routes": [
     {
-      "src": "/api/ai-bill-parser",
-      "dest": "/api/ai-bill-parser.js"
-    },
-    {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
     {
-      "src": "/((?!admin|api/|assets/).*)",
+      "src": "/(.*)",
       "dest": "/index.html"
     }
   ]
