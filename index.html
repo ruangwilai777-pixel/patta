@@ -1081,41 +1081,27 @@
                           for (const item of selectedItems) {
                               const routeNameWithSuffix = `${item.matchedRoute.trim()}${suffix}`;
                               
-                              // Check if exists
-                              const { data: existing } = await sbClient
-                                  .from('route_presets')
-                                  .select('*')
-                                  .eq('route_name', routeNameWithSuffix);
+                              let { error: upsertErr } = await sbClient.from('route_presets').upsert({
+                                  route: routeNameWithSuffix,
+                                  price: parseFloat(item.price),
+                                  wage: 0
+                              }, { onConflict: 'route' });
 
-                              if (existing && existing.length > 0) {
-                                  // Update
-                                  const { error: updateErr } = await sbClient
-                                      .from('route_presets')
-                                      .update({ price: item.price })
-                                      .eq('route_name', routeNameWithSuffix);
+                              if (upsertErr) {
+                                  console.warn("Upsert with 'route' failed, trying fallback to 'route_name'...", upsertErr.message);
+                                  const fallback = await sbClient.from('route_presets').upsert({
+                                      route_name: routeNameWithSuffix,
+                                      price: parseFloat(item.price),
+                                      wage: 0
+                                  }, { onConflict: 'route_name' });
+                                  upsertErr = fallback.error;
+                              }
 
-                                  if (updateErr) {
-                                      console.error(updateErr);
-                                      failedCount++;
-                                  } else {
-                                      updatedCount++;
-                                  }
+                              if (upsertErr) {
+                                  console.error("Error upserting route preset:", upsertErr);
+                                  failedCount++;
                               } else {
-                                  // Insert
-                                  const { error: insertErr } = await sbClient
-                                      .from('route_presets')
-                                      .insert({
-                                          route_name: routeNameWithSuffix,
-                                          price: item.price,
-                                          wage: 0
-                                      });
-
-                                  if (insertErr) {
-                                      console.error(insertErr);
-                                      failedCount++;
-                                  } else {
-                                      updatedCount++;
-                                  }
+                                  updatedCount++;
                               }
                           }
 
