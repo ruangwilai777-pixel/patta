@@ -1,17 +1,10 @@
 {
   "cleanUrls": true,
   "routes": [
-    {
-      "src": "/api/ai-bill-parser",
-      "dest": "/api/ai-bill-parser.js"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/((?!admin|api/|assets/).*)",
-      "dest": "/index.html"
-    }
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/driver", "dest": "/index.html" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/driver(.*)", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
