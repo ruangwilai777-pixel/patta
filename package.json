@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build": "mkdir -p dist && cp -r public/* dist/ && cp index.html dist/ && cp -r assets dist/",
     "lint": "eslint .",
     "preview": "vite preview"
   },
