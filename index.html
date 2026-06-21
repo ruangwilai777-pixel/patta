@@ -229,6 +229,7 @@
   <!-- Original stable Driver bundle - DO NOT CHANGE THIS LINE -->
   <script type="module" crossorigin src="/assets/main-Dcs-rvvl.js?v=2.3"></script>
   <link rel="stylesheet" crossorigin href="/assets/main-gNL91H-p.css?v=2.3">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -327,10 +328,899 @@
               overflow: auto !important;
               padding: 20px !important;
             }
+
+            /* Custom styles for AI Importer */
+            .custom-tab-btn {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 3px;
+              cursor: pointer;
+              color: var(--text-muted);
+              transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+              width: 60px;
+            }
+            
+            .custom-dropzone {
+              border: 2px dashed var(--glass-border);
+              border-radius: 16px;
+              padding: 1.5rem;
+              text-align: center;
+              cursor: pointer;
+              position: relative;
+              background: transparent;
+              transition: all 0.3s ease;
+            }
+            .custom-dropzone.active {
+              background: rgba(99, 102, 241, 0.06);
+              border-color: #818cf8;
+            }
+            
+            .custom-dropzone input[type="file"] {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              opacity: 0;
+              cursor: pointer;
+              z-index: 5 !important;
+            }
+            
+            .custom-select {
+              width: 100%;
+              padding: 10px 14px;
+              border-radius: 12px;
+              border: 1px solid var(--glass-border);
+              background: rgba(255, 255, 255, 0.04);
+              color: var(--text-main);
+              font-size: 0.85rem;
+              font-weight: 700;
+              outline: none;
+            }
+            
+            .custom-btn {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              padding: 12px 24px;
+              border-radius: 12px;
+              border: none;
+              cursor: pointer;
+              font-size: 0.88rem;
+              font-weight: 800;
+              transition: all 0.3s ease;
+            }
+            .custom-btn:disabled {
+              background: #334155;
+              color: #64748b;
+              cursor: not-allowed;
+            }
+            
+            .custom-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 0.78rem;
+              text-align: left;
+            }
+            .custom-table th {
+              padding: 8px 12px;
+              color: #64748b;
+              font-weight: 700;
+              border-bottom: 1px solid var(--glass-border);
+            }
+            .custom-table td {
+              padding: 12px 12px;
+              border-bottom: 1px solid var(--glass-border);
+            }
           `;
           document.head.appendChild(style);
 
+          // Supabase setup
+          const supabaseUrl = 'https://sofybjtkbjzxlunzysyg.supabase.co';
+          const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZnlianRrYmp6eGx1bnp5c3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NDk4NzEsImV4cCI6MjA4MzAyNTg3MX0.fQMLMUFppzIlCCum29RFKGakM9r96kdlYhl1V2oGZfk';
+          let sbClient = null;
+          
+          function initSupabase() {
+              if (window.supabase && !sbClient) {
+                  sbClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+                  console.log("Supabase client initialized successfully inside DOM Patch.");
+              }
+          }
+          initSupabase();
+
+          // Global state
+          let selectedFile = null;
+          let isLoading = false;
+          let loadingStage = '';
+          let parsedTrips = [];
+          let syncResult = null;
+          let routePresets = {};
+          let detectedMonth = null;
+          let detectedYear = null;
+          let manualMonth = null;
+          let manualYear = null;
+          let rawAiPresets = [];
+
+          // Helper to get active month and year from DOM
+          function getActiveMonthAndYear() {
+              let domMonth = null;
+              let domYear = null;
+
+              // 1. Try to find month and year from select dropdowns in the DOM (highest priority)
+              try {
+                  const selects = Array.from(document.querySelectorAll('select')).filter(el => {
+                      return !el.closest('#custom-ai-settings-card');
+                  });
+                  for (const sel of selects) {
+                      const val = parseInt(sel.value);
+                      if (sel.options.length === 12 && (sel.options[0].text === 'มกราคม' || sel.options[0].textContent.includes('มกราคม'))) {
+                          if (!isNaN(val) && val >= 0 && val <= 11) {
+                              domMonth = val;
+                          }
+                      }
+                      if (sel.options.length > 0) {
+                          const optText = sel.options[0].text || sel.options[0].textContent || '';
+                          if (optText.trim().match(/^(25|20)\d{2}$/)) {
+                              if (!isNaN(val)) {
+                                  domYear = val > 2400 ? val - 543 : val;
+                              }
+                          }
+                      }
+                  }
+              } catch (err) {
+                  console.error("Error reading DOM selects:", err);
+              }
+
+              if (domMonth !== null && domYear !== null) {
+                  return { month: domMonth, year: domYear };
+              }
+
+              // 2. Fallback: Try to find from spans
+              try {
+                  const spans = Array.from(document.querySelectorAll('span')).filter(el => {
+                      return !el.closest('#custom-ai-settings-card');
+                  });
+                  const monthNames = [
+                      'มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                      'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'
+                  ];
+                  for (const span of spans) {
+                      const text = span.textContent.trim();
+                      const foundMonth = monthNames.find(m => text.includes(m));
+                      if (foundMonth) {
+                          const yearMatch = text.match(/\b(25\d{2}|20\d{2})\b/);
+                          if (yearMatch) {
+                              const mIdx = monthNames.indexOf(foundMonth);
+                              let year = parseInt(yearMatch[0]);
+                              if (year > 2400) {
+                                  year -= 543;
+                              }
+                              return { month: mIdx, year: year };
+                          }
+                      }
+                  }
+              } catch (err) {
+                  console.error("Error reading DOM spans:", err);
+              }
+
+              // 3. Last resort fallback: Date calculations
+              const now = new Date();
+              let m = now.getMonth();
+              let y = now.getFullYear();
+              if (now.getDate() >= 20) {
+                  m += 1;
+                  if (m > 11) { m = 0; y += 1; }
+              }
+              return { month: m, year: y };
+          }
+
+          // Fetch route presets from DB
+          async function fetchDBInfo() {
+              if (!sbClient) return;
+              try {
+                  const period = getActiveMonthAndYear();
+                  const suffix = `_${period.month + 1}_${period.year}`;
+                  const suffixShort = `_${period.month + 1}_${String(period.year).slice(-2)}`;
+                  
+                  // Fetch presets
+                  const { data: presets } = await sbClient.from('route_presets').select('*');
+                  const currentPresets = {};
+                  if (presets) {
+                      presets.forEach(p => {
+                          const rName = p.route_name || p.name || p.route || 'Unknown';
+                          if (rName.includes(suffix) || rName.includes(suffixShort)) {
+                              const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
+                              currentPresets[cleanName] = { price: p.price, wage: p.wage };
+                          }
+                      });
+                  }
+                  routePresets = currentPresets;
+              } catch (e) {
+                  console.error("Error fetching DB info:", e);
+              }
+          }
+
+          // Perform matching and enrichment of AI parsed routes against target presets
+          async function performMatchingAndEnrichment() {
+              if (!sbClient) return;
+              try {
+                  const period = getActiveMonthAndYear();
+                  let targetMonth = manualMonth !== null ? manualMonth : period.month;
+                  let targetYear = manualYear !== null ? manualYear : period.year;
+
+                  const suffix = `_${targetMonth + 1}_${targetYear}`;
+                  const suffixShort = `_${targetMonth + 1}_${String(targetYear).slice(-2)}`;
+
+                  const { data: dbPresets } = await sbClient.from('route_presets').select('*');
+                  const targetPresets = {};
+                  if (dbPresets) {
+                      dbPresets.forEach(p => {
+                          const rName = p.route_name || p.name || p.route || 'Unknown';
+                          if (rName.includes(suffix) || rName.includes(suffixShort)) {
+                              const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
+                              targetPresets[cleanName] = { price: p.price, wage: p.wage };
+                          }
+                      });
+                  }
+
+                  const filteredPresets = rawAiPresets.filter(item => {
+                      const p = parseFloat(item.price);
+                      return p !== 300 && p !== 600 && p !== 1000 && p > 0;
+                  });
+
+                  const enriched = filteredPresets.map((item, index) => {
+                      const cleanRoute = (item.route || '').trim();
+                      const matchedPreset = targetPresets[cleanRoute];
+                      
+                      let action = 'create';
+                      let statusText = 'สร้างสายงานใหม่';
+                      let selected = true;
+                      
+                      if (matchedPreset) {
+                          if (parseFloat(matchedPreset.price) === parseFloat(item.price)) {
+                              action = 'skip';
+                              statusText = 'ตรงกับระบบแล้ว';
+                              selected = false;
+                          } else {
+                              action = 'update';
+                              statusText = `อัปเดตราคากลาง (เดิม ฿${matchedPreset.price})`;
+                          }
+                      }
+
+                      return {
+                          id: index,
+                          originalRoute: cleanRoute,
+                          matchedRoute: cleanRoute,
+                          price: parseFloat(item.price) || 0,
+                          statusText: statusText,
+                          selected: selected,
+                          action: action
+                      };
+                  });
+
+                  parsedTrips = enriched;
+              } catch (err) {
+                  console.error("Error matching presets:", err);
+              }
+          }
+
+          // Render Main Importer HTML inside target element
+          let isAiCollapsed = localStorage.getItem('aiImporterCollapsed') !== 'false';
+
+          // Render Main Importer HTML inside target element
+          function renderImporterUI() {
+              const contentEl = document.getElementById('ai-importer-content');
+              if (!contentEl) return;
+
+              const period = getActiveMonthAndYear();
+              const monthNames = [
+                  'มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'
+              ];
+
+              // Determine active month and year to display
+              let activeMonth = manualMonth !== null ? manualMonth : period.month;
+              let activeYear = manualYear !== null ? manualYear : period.year;
+
+              let monthStatusHtml = `
+                  <div style="font-size: 0.82rem; color: var(--text-main); font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                          <span>📅 งวดเดือนที่จะบันทึกราคากลาง:</span>
+                          <div style="display: flex; gap: 6px; align-items: center;">
+                              \${detectedMonth !== null ? `<span style="color: #a78bfa; font-size: 0.68rem; font-weight: 800; background: rgba(167,139,250,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(167,139,250,0.2);">AI ตรวจพบ: \${monthNames[detectedMonth]}</span>` : ''}
+                              \${manualMonth !== null ? '<span style="color: #3b82f6; font-size: 0.68rem; font-weight: 800; background: rgba(59,130,246,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.2);">คุณเลือกเอง</span>' : '<span style="color: var(--text-dim); font-size: 0.68rem; font-weight: 800;">อิงตามหน้าจอ</span>'}
+                          </div>
+                      </div>
+                      <div style="display: flex; gap: 8px; width: 100%;">
+                          <select id="ai-month-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
+                              \${monthNames.map((m, idx) => `<option value="\${idx}" \${idx === activeMonth ? 'selected' : ''}>\${m}</option>`).join('')}
+                          </select>
+                          <select id="ai-year-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
+                              \${[2024, 2025, 2026, 2027, 2028].map(y => `<option value="\${y}" \${y === activeYear ? 'selected' : ''}>\${y + 543}</option>`).join('')}
+                          </select>
+                      </div>
+                  </div>
+              `;
+
+              contentEl.innerHTML = `
+                  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                      <!-- Config Panel -->
+                      <div class="glass-card" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1.25rem 1.75rem; backdrop-filter: blur(20px);">
+                          <h3 style="font-size: 1rem; font-weight: 800; color: var(--text-main); margin-bottom: \${isAiCollapsed ? '0' : '1.25rem'}; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="ai-collapse-toggle">
+                              <span style="display: flex; align-items: center; gap: 8px;">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles">
+                                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                                    <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5z"/>
+                                    <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/>
+                                  </svg> ✨ นำเข้าราคากลางค่าเที่ยวประจำเดือนด้วย AI (Gemini 2.5)
+                              </span>
+                              <span style="font-size: 0.8rem; color: #a78bfa; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                                  \${isAiCollapsed ? 'แสดงเครื่องมือ ▾' : 'ซ่อนเครื่องมือ ▴'}
+                              </span>
+                          </h3>
+                          
+                          \${isAiCollapsed ? '' : `
+                          <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.25rem;">
+                              <!-- Target Month indicator -->
+                              \${monthStatusHtml}
+                              
+                              <!-- Dropzone -->
+                              <div id="ai-dropzone" class="custom-dropzone \${selectedFile ? 'active' : ''}">
+                                  <input type="file" id="ai-file-input" accept="application/pdf, image/png, image/jpeg, image/jpg" style="z-index: 5 !important;" />
+                                  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; position: relative; z-index: 1;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="\${selectedFile ? '#818cf8' : '#64748b'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-upload-cloud">
+                                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+                                        <path d="M12 12v9"/>
+                                        <path d="m16 16-4-4-4 4"/>
+                                      </svg>
+                                      \${selectedFile ? \`
+                                          <div>
+                                              <div style="font-size: 0.82rem; font-weight: 800; color: var(--text-main);">\${selectedFile.name}</div>
+                                              <div style="font-size: 0.68rem; color: var(--text-dim);">\${(selectedFile.size / 1024).toFixed(1)} KB | พร้อมวิเคราะห์</div>
+                                          </div>
+                                      \` : \`
+                                          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                              <div style="font-size: 0.82rem; font-weight: 800; color: var(--text-dim);">ลากไฟล์เอกสารแจ้งราคา หรือภาพตารางค่าเที่ยวมาวางตรงนี้</div>
+                                              <div style="font-size: 0.68rem; color: #475569; margin-bottom: 6px;">รองรับไฟล์ PDF, PNG, JPG, JPEG</div>
+                                              <div class="custom-btn" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 8px 16px; font-size: 0.75rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(99,102,241,0.3); font-weight: bold; margin: 4px auto 0 auto;">
+                                                  📂 เลือกไฟล์เอกสาร / รูปภาพใบราคา
+                                              </div>
+                                          </div>
+                                      \`}
+                                  </div>
+                              </div>
+                              
+                              <!-- Analyze Button -->
+                              <button id="ai-analyze-btn" class="custom-btn" style="background: \${selectedFile && !isLoading ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#334155'}; color: \${selectedFile && !isLoading ? 'white' : '#64748b'}; width: 100%; justify-content: center; box-shadow: \${selectedFile && !isLoading ? '0 4px 14px rgba(99,102,241,0.4)' : 'none'};" \${!selectedFile || isLoading ? 'disabled' : ''}>
+                                  \${isLoading ? \`
+                                      <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                      </svg>
+                                      <span>กำลังอ่านเอกสาร...</span>
+                                  \` : \`
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                                      </svg>
+                                      <span>เริ่มวิเคราะห์ข้อมูลด้วย AI</span>
+                                  \`}
+                              </button>
+                          </div>
+                          \`}
+                          
+                          <!-- Progress Bar -->
+                          \${isLoading ? \`
+                              <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 6px;">
+                                  <div style="font-size: 0.75rem; color: #a78bfa; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                      <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                      </svg>
+                                      <span>\${loadingStage}</span>
+                                  </div>
+                                  <div style="width: 100%; height: 4px; border-radius: 2px; background: var(--glass-border); overflow: hidden;">
+                                      <div style="height: 100%; width: \${loadingStage.includes('ดึงข้อมูล') ? '30%' : loadingStage.includes('Gemini') ? '70%' : '90%'}; background: linear-gradient(90deg, #6366f1, #d946ef); transition: width 1s ease;"></div>
+                                  </div>
+                              </div>
+                          \` : ''}
+                      </div>
+                      
+                      <!-- Sync Result Message -->
+                      \${syncResult ? \`
+                          <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 20px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; color: #34d399;">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+                              </svg>
+                              <div>
+                                  <div style="font-size: 0.88rem; font-weight: 800;">บันทึกข้อมูลเรียบร้อยแล้วเจ้า!</div>
+                                  <div style="font-size: 0.75rem; color: rgba(255,255,255,0.7);">
+                                      บันทึกราคาค่าเที่ยวสำเร็จ \${syncResult.updatedCount} รายการ | ล้มเหลว \${syncResult.failedCount} รายการ
+                                  </div>
+                              </div>
+                          </div>
+                      \` : ''}
+                      
+                      <!-- Preview Table -->
+                      \${parsedTrips.length > 0 && !isAiCollapsed ? \`
+                          <div class="glass-card" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1.5rem; backdrop-filter: blur(20px);">
+                              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+                                  <div>
+                                      <h3 style="font-size: 0.92rem; font-weight: 800; color: var(--text-main); margin: 0;">📋 ตารางพรีวิวยอดราคากลางค่าเที่ยวที่ AI วิเคราะห์ได้</h3>
+                                      <p style="font-size: 0.7rem; color: var(--text-dim); margin: 2px 0 0 0;">*ระบบจะคัดกรองค่าตะกร้าออกโดยอัตโนมัติ กรุณาตรวจสอบข้อมูลและกดบันทึก</p>
+                                  </div>
+                                  <div style="display: flex; gap: 8px;">
+                                      <button id="ai-select-all-btn" style="background: transparent; border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 10px; font-size: 0.7rem; color: var(--text-dim); cursor: pointer; font-weight: 700;">เลือกทั้งหมด</button>
+                                      <button id="ai-clear-all-btn" style="background: transparent; border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 10px; font-size: 0.7rem; color: var(--text-dim); cursor: pointer; font-weight: 700;">ล้างทั้งหมด</button>
+                                  </div>
+                              </div>
+                              
+                              <div style="overflow-x: auto; width: 100%; margin-bottom: 1.5rem;">
+                                  <table class="custom-table">
+                                      <thead>
+                                          <tr style="border-bottom: 1px solid var(--glass-border);">
+                                              <th style="width: 40px;"></th>
+                                              <th>สายงานในเอกสาร</th>
+                                              <th>สายงานในระบบ (Manual Override)</th>
+                                              <th style="text-align: right;">ราคากลางค่าเที่ยวต่อรอบ</th>
+                                              <th style="text-align: center;">สถานะ/การดำเนินการ</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody id="ai-table-body">
+                                      </tbody>
+                                  </table>
+                              </div>
+                              
+                              <!-- Footer & Sync -->
+                              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1.25rem; border-top: 1px solid var(--glass-border); flex-wrap: wrap; gap: 1rem;">
+                                  <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 700;">
+                                      ยอดรวมราคากลางที่เลือก: <span id="ai-total-price" style="color: #2dd4bf; font-size: 1.1rem; font-weight: 900; margin-left: 6px;">฿0</span>
+                                  </div>
+                                  <button id="ai-sync-btn" class="custom-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                      </svg>
+                                      <span>ยืนยันบันทึกข้อมูลเข้าระบบ</span>
+                                  </button>
+                              </div>
+                          </div>
+                      \` : ''}
+                  </div>
+              `;
+
+              // Collapse toggle binding
+              const toggleEl = document.getElementById('ai-collapse-toggle');
+              if (toggleEl) {
+                  toggleEl.onclick = () => {
+                      isAiCollapsed = !isAiCollapsed;
+                      localStorage.setItem('aiImporterCollapsed', isAiCollapsed ? 'true' : 'false');
+                      renderImporterUI();
+                  };
+              }
+
+              if (!isAiCollapsed) {
+                  const dropzone = document.getElementById('ai-dropzone');
+                  const fileInput = document.getElementById('ai-file-input');
+
+                  // Bind Dropdowns for manual overrides
+                  const monthSel = document.getElementById('ai-month-select');
+                  if (monthSel) {
+                      monthSel.onchange = async (e) => {
+                          manualMonth = parseInt(e.target.value);
+                          if (rawAiPresets.length > 0) {
+                              isLoading = true;
+                              loadingStage = 'กำลังอัปเดตราคากลางของงวดเดือนที่เลือก...';
+                              renderImporterUI();
+                              await performMatchingAndEnrichment();
+                              isLoading = false;
+                              loadingStage = '';
+                          }
+                          renderImporterUI();
+                          if (parsedTrips.length > 0) {
+                              renderTableRows();
+                          }
+                      };
+                  }
+                  const yearSel = document.getElementById('ai-year-select');
+                  if (yearSel) {
+                      yearSel.onchange = async (e) => {
+                          manualYear = parseInt(e.target.value);
+                          if (rawAiPresets.length > 0) {
+                              isLoading = true;
+                              loadingStage = 'กำลังอัปเดตราคากลางของงวดเดือนที่เลือก...';
+                              renderImporterUI();
+                              await performMatchingAndEnrichment();
+                              isLoading = false;
+                              loadingStage = '';
+                          }
+                          renderImporterUI();
+                          if (parsedTrips.length > 0) {
+                              renderTableRows();
+                          }
+                      };
+                  }
+                  
+                  if (fileInput) {
+                      fileInput.onchange = (e) => {
+                          const file = e.target.files[0];
+                          if (file && (file.type === 'application/pdf' || file.type.startsWith('image/'))) {
+                              selectedFile = file;
+                              parsedTrips = [];
+                              syncResult = null;
+                              detectedMonth = null;
+                              detectedYear = null;
+                              renderImporterUI();
+                          } else if (file) {
+                              alert('กรุณาเลือกไฟล์ PDF หรือไฟล์รูปภาพ (PNG, JPG, JPEG) เท่านั้นครับ');
+                          }
+                      };
+                  }
+
+                  // Drag and drop styles
+                  if (dropzone) {
+                      dropzone.ondragover = (e) => {
+                          e.preventDefault();
+                          dropzone.classList.add('active');
+                      };
+                      dropzone.ondragleave = () => {
+                          dropzone.classList.remove('active');
+                      };
+                      dropzone.ondrop = (e) => {
+                          e.preventDefault();
+                          dropzone.classList.remove('active');
+                          const file = e.dataTransfer.files[0];
+                          if (file && (file.type === 'application/pdf' || file.type.startsWith('image/'))) {
+                              selectedFile = file;
+                              parsedTrips = [];
+                              syncResult = null;
+                              detectedMonth = null;
+                              detectedYear = null;
+                              renderImporterUI();
+                          } else if (file) {
+                              alert('กรุณาเลือกไฟล์ PDF หรือไฟล์รูปภาพ (PNG, JPG, JPEG) เท่านั้นครับ');
+                          }
+                      };
+                  }
+
+                  // Analyze Button Click
+                  const analyzeBtn = document.getElementById('ai-analyze-btn');
+                  if (analyzeBtn) {
+                      analyzeBtn.onclick = async () => {
+                          if (!selectedFile || isLoading) return;
+                          isLoading = true;
+                          syncResult = null;
+                          loadingStage = 'กำลังอ่านข้อมูลบิลเอกสาร...';
+                          renderImporterUI();
+
+                          try {
+                              // Fetch route presets (currently selected month)
+                              await fetchDBInfo();
+
+                              // Convert file to Base64
+                              const base64 = await new Promise((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.readAsDataURL(selectedFile);
+                                  reader.onload = () => resolve(reader.result.split(',')[1]);
+                                  reader.onerror = reject;
+                              });
+
+                              loadingStage = 'ส่งข้อมูลให้ AI ประมวลผลและหาราคากลาง...';
+                              renderImporterUI();
+
+                              // Send to backend endpoint
+                              const presetsArray = Object.keys(routePresets);
+                              const response = await fetch('/api/ai-bill-parser', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                      pdfBase64: base64,
+                                      mimeType: selectedFile.type,
+                                      routePresets: presetsArray
+                                  })
+                              });
+
+                              if (!response.ok) {
+                                  const err = await response.json();
+                                  throw new Error(err.error || 'Server error during parsing');
+                              }
+
+                              const data = await response.json();
+                              if (!data.presets || !Array.isArray(data.presets)) {
+                                  throw new Error('AI ส่งผลลัพธ์ข้อมูลกลับมาไม่ถูกต้อง');
+                              }
+
+                              // Update detected state
+                              if (data.detectedMonth !== undefined && data.detectedMonth !== null) {
+                                  detectedMonth = parseInt(data.detectedMonth);
+                              } else {
+                                  detectedMonth = null;
+                              }
+                              if (data.detectedYear !== undefined && data.detectedYear !== null) {
+                                  detectedYear = parseInt(data.detectedYear);
+                              } else {
+                                  detectedYear = null;
+                              }
+
+                              // Reset manual override on new upload so we align with AI or screen defaults
+                              manualMonth = null;
+                              manualYear = null;
+                              rawAiPresets = data.presets || [];
+
+                              loadingStage = 'จับคู่เปรียบเทียบกับราคากลางในระบบ...';
+                              renderImporterUI();
+
+                              await performMatchingAndEnrichment();
+
+                          } catch (e) {
+                              console.error(e);
+                              alert('เกิดข้อผิดพลาดในการวิเคราะห์ด้วย AI: ' + e.message);
+                          } finally {
+                              isLoading = false;
+                              loadingStage = '';
+                              renderImporterUI();
+                              if (parsedTrips.length > 0) {
+                                  renderTableRows();
+                              }
+                          }
+                      };
+                  }
+
+                  if (parsedTrips.length > 0) {
+                      renderTableRows();
+                  }
+              }
+          }
+
+          // Render Preview Table rows and bind overrides
+          function renderTableRows() {
+              const tbody = document.getElementById('ai-table-body');
+              if (!tbody) return;
+
+              tbody.innerHTML = '';
+
+              parsedTrips.forEach((item) => {
+                  const tr = document.createElement('tr');
+                  tr.style.borderBottom = '1px solid var(--glass-border)';
+
+                  let actionText = '';
+                  let actionColor = '';
+                  if (item.action === 'skip') {
+                      actionText = '✅ ตรงกับระบบแล้ว';
+                      actionColor = '#10b981';
+                  } else if (item.action === 'update') {
+                      actionText = '🔄 อัปเดตราคากลาง';
+                      actionColor = '#f59e0b';
+                  } else {
+                      actionText = '➕ สร้างสายงานใหม่';
+                      actionColor = '#3b82f6';
+                  }
+
+                  tr.innerHTML = `
+                      <td style="text-align: center; padding: 12px 6px;">
+                          <input type="checkbox" class="ai-item-checkbox" data-id="${item.id}" ${item.selected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;" />
+                      </td>
+                      <td style="padding: 12px; font-weight: bold; color: var(--text-main);">${item.originalRoute}</td>
+                      <td style="padding: 12px;">
+                          <input type="text" class="ai-route-override" data-id="${item.id}" value="${item.matchedRoute}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 90%; font-weight: bold;" />
+                      </td>
+                      <td style="padding: 12px; text-align: right; font-weight: 800; color: #34d399;">฿${item.price.toLocaleString()}</td>
+                      <td style="padding: 12px; text-align: center; font-weight: 800; color: ${actionColor}; font-size: 0.78rem;">${actionText}</td>
+                  `;
+
+                  tbody.appendChild(tr);
+              });
+
+              // Bind checkbox change
+              document.querySelectorAll('.ai-item-checkbox').forEach(cb => {
+                  cb.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.selected = e.target.checked;
+                          updateTotalSum();
+                      }
+                  };
+              });
+
+              // Bind text override change
+              document.querySelectorAll('.ai-route-override').forEach(input => {
+                  input.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.matchedRoute = e.target.value;
+                      }
+                  };
+              });
+
+              updateTotalSum();
+
+              // Bind select all
+              const selectAllBtn = document.getElementById('ai-select-all-btn');
+              if (selectAllBtn) {
+                  selectAllBtn.onclick = () => {
+                      parsedTrips.forEach(t => t.selected = true);
+                      renderTableRows();
+                  };
+              }
+
+              // Bind clear all
+              const clearAllBtn = document.getElementById('ai-clear-all-btn');
+              if (clearAllBtn) {
+                  clearAllBtn.onclick = () => {
+                      parsedTrips.forEach(t => t.selected = false);
+                      renderTableRows();
+                  };
+              }
+
+              // Sync Button Click
+              const syncBtn = document.getElementById('ai-sync-btn');
+              if (syncBtn) {
+                  syncBtn.onclick = async () => {
+                      const selectedItems = parsedTrips.filter(t => t.selected);
+                      if (selectedItems.length === 0) {
+                          alert('กรุณาเลือกรายการที่ต้องการบันทึกอย่างน้อย 1 รายการครับ');
+                          return;
+                      }
+
+                      const confirmMsg = `ต้องการบันทึกราคากลางค่าเที่ยวจำนวน ${selectedItems.length} รายการ เข้าระบบใช่หรือไม่?`;
+                      if (!confirm(confirmMsg)) return;
+
+                      isLoading = true;
+                      loadingStage = 'กำลังอัปโหลดราคากลางเข้าฐานข้อมูล Supabase...';
+                      renderImporterUI();
+
+                      try {
+                          const period = getActiveMonthAndYear();
+                          let targetMonth = manualMonth !== null ? manualMonth : period.month;
+                          let targetYear = manualYear !== null ? manualYear : period.year;
+
+                          const suffix = `_${targetMonth + 1}_${targetYear}`;
+                          let updatedCount = 0;
+                          let failedCount = 0;
+
+                          for (const item of selectedItems) {
+                              const routeNameWithSuffix = `${item.matchedRoute.trim()}${suffix}`;
+                              
+                              // Check if exists
+                              const { data: existing } = await sbClient
+                                  .from('route_presets')
+                                  .select('*')
+                                  .eq('route_name', routeNameWithSuffix);
+
+                              if (existing && existing.length > 0) {
+                                  // Update
+                                  const { error: updateErr } = await sbClient
+                                      .from('route_presets')
+                                      .update({ price: item.price })
+                                      .eq('route_name', routeNameWithSuffix);
+
+                                  if (updateErr) {
+                                      console.error(updateErr);
+                                      failedCount++;
+                                  } else {
+                                      updatedCount++;
+                                  }
+                              } else {
+                                  // Insert
+                                  const { error: insertErr } = await sbClient
+                                      .from('route_presets')
+                                      .insert({
+                                          route_name: routeNameWithSuffix,
+                                          price: item.price,
+                                          wage: 0
+                                      });
+
+                                  if (insertErr) {
+                                      console.error(insertErr);
+                                      failedCount++;
+                                  } else {
+                                      updatedCount++;
+                                  }
+                              }
+                          }
+
+                          syncResult = { updatedCount, failedCount };
+                          parsedTrips = [];
+                          selectedFile = null;
+                          detectedMonth = null;
+                          detectedYear = null;
+                          rawAiPresets = [];
+
+                          // Trigger page refresh if page has fetchPresets
+                          if (window.dispatchEvent) {
+                              window.dispatchEvent(new Event('refreshPresets'));
+                          }
+
+                      } catch (err) {
+                          console.error(err);
+                          alert(`เกิดข้อผิดพลาดในการซิงก์ข้อมูล: ${err.message}`);
+                      } finally {
+                          isLoading = false;
+                          loadingStage = '';
+                          renderImporterUI();
+                      }
+                  };
+              }
+          }
+
+          function updateTotalSum() {
+              const totalEl = document.getElementById('ai-total-price');
+              if (!totalEl) return;
+              const sum = parsedTrips.filter(t => t.selected).reduce((acc, t) => acc + t.price, 0);
+              totalEl.textContent = '฿' + sum.toLocaleString('th-TH');
+          }
+
+          // Main View Sync Loop
+          let lastActiveMonthStr = '';
+          function syncSettingsAiImporter() {
+              initSupabase();
+              
+              // Search for the "สรุปพนักงาน" title div
+              const divs = Array.from(document.querySelectorAll('div'));
+              const targetTitle = divs.find(el => el.textContent.trim() === 'สรุปพนักงาน');
+              
+              if (!targetTitle) {
+                  lastActiveMonthStr = '';
+                  const oldContainer = document.getElementById('custom-ai-settings-card');
+                  if (oldContainer) {
+                      oldContainer.remove();
+                  }
+                  return;
+              }
+
+              const driverSelector = document.querySelector('.driver-selector-premium');
+              if (!driverSelector) return;
+
+              // Check if month changed
+              const period = getActiveMonthAndYear();
+              const periodStr = `${period.month}_${period.year}`;
+              const monthChanged = lastActiveMonthStr && lastActiveMonthStr !== periodStr;
+
+              let aiCard = document.getElementById('custom-ai-settings-card');
+              if (!aiCard) {
+                  aiCard = document.createElement('div');
+                  aiCard.id = 'custom-ai-settings-card';
+                  aiCard.style.cssText = 'width: 100%; display: flex; flex-direction: column; gap: 1.5rem; margin-top: 0.5rem; margin-bottom: 1.5rem;';
+                  aiCard.innerHTML = `<div id="ai-importer-content"></div>`;
+                  
+                  // Insert BEFORE the driver selector
+                  driverSelector.parentNode.insertBefore(aiCard, driverSelector);
+                  lastActiveMonthStr = periodStr;
+                  renderImporterUI();
+                  
+                  fetchDBInfo().then(() => {
+                      renderImporterUI();
+                  }).catch(e => console.error("Error loading DB info on mount:", e));
+              } else {
+                  if (aiCard.nextSibling !== driverSelector) {
+                      driverSelector.parentNode.insertBefore(aiCard, driverSelector);
+                  }
+                  
+                  if (monthChanged) {
+                      lastActiveMonthStr = periodStr;
+                      parsedTrips = [];
+                      selectedFile = null;
+                      syncResult = null;
+                      detectedMonth = null;
+                      detectedYear = null;
+                      manualMonth = null;
+                      manualYear = null;
+                      fetchDBInfo().then(() => {
+                          renderImporterUI();
+                      });
+                  } else if (!document.getElementById('ai-importer-content').innerHTML) {
+                      renderImporterUI();
+                      fetchDBInfo().then(() => {
+                          renderImporterUI();
+                      }).catch(e => console.error("Error reloading DB info:", e));
+                  }
+              }
+          }
+
+          // Run tab states and fullscreen features periodically
           setInterval(() => {
+              syncSettingsAiImporter();
+
               // Fullscreen button
               document.querySelectorAll('.trip-log-card').forEach(card => {
                   if (card.dataset.fsBtn) return;
