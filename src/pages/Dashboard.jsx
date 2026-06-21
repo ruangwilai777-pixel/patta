@@ -237,9 +237,27 @@ const Dashboard = () => {
                             <button onClick={() => handleMonthChange(-1)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', borderRadius: '8px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronLeft size={16} />
                             </button>
-                            <span style={{ minWidth: '140px', textAlign: 'center', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                {months[currentMonth]} {currentYear}
-                            </span>
+                            <select 
+                                value={currentMonth} 
+                                onChange={(e) => setCurrentMonth(parseInt(e.target.value))} 
+                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none', textAlign: 'center', appearance: 'none', padding: '0 4px' }}
+                            >
+                                {months.map((m, idx) => (
+                                    <option key={idx} value={idx} style={{ color: '#000' }}>{m}</option>
+                                ))}
+                            </select>
+                            <select 
+                                value={currentYear} 
+                                onChange={(e) => setCurrentYear(parseInt(e.target.value))} 
+                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none', appearance: 'none', padding: '0 4px' }}
+                            >
+                                {[...Array(5)].map((_, i) => {
+                                    const y = new Date().getFullYear() - 2 + i;
+                                    return (
+                                        <option key={y} value={y} style={{ color: '#000' }}>{y + 543}</option>
+                                    );
+                                })}
+                            </select>
                             <button onClick={() => handleMonthChange(1)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', borderRadius: '8px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronRight size={16} />
                             </button>
