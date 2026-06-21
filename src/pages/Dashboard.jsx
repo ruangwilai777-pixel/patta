@@ -240,7 +240,7 @@ const Dashboard = () => {
                             <select 
                                 value={currentMonth} 
                                 onChange={(e) => setCurrentMonth(parseInt(e.target.value))} 
-                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none', textAlign: 'center', appearance: 'none', padding: '0 4px' }}
+                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none', textAlign: 'center',  padding: '0 4px' }}
                             >
                                 {months.map((m, idx) => (
                                     <option key={idx} value={idx} style={{ color: '#000' }}>{m}</option>
@@ -249,7 +249,7 @@ const Dashboard = () => {
                             <select 
                                 value={currentYear} 
                                 onChange={(e) => setCurrentYear(parseInt(e.target.value))} 
-                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none', appearance: 'none', padding: '0 4px' }}
+                                style={{ border: 'none', background: 'transparent', fontSize: '0.88rem', fontWeight: 700, color: '#8b5cf6', cursor: 'pointer', outline: 'none',  padding: '0 4px' }}
                             >
                                 {[...Array(5)].map((_, i) => {
                                     const y = new Date().getFullYear() - 2 + i;
