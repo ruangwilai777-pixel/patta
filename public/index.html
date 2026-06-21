@@ -931,18 +931,18 @@
                               // Update detected state
                               if (data.detectedMonth !== undefined && data.detectedMonth !== null) {
                                   detectedMonth = parseInt(data.detectedMonth);
+                                  manualMonth = detectedMonth; // Auto-set selection to detected month!
                               } else {
                                   detectedMonth = null;
+                                  manualMonth = null;
                               }
                               if (data.detectedYear !== undefined && data.detectedYear !== null) {
                                   detectedYear = parseInt(data.detectedYear);
+                                  manualYear = detectedYear; // Auto-set selection to detected year!
                               } else {
                                   detectedYear = null;
+                                  manualYear = null;
                               }
-
-                              // Reset manual override on new upload so we align with AI or screen defaults
-                              manualMonth = null;
-                              manualYear = null;
                               rawAiPresets = data.presets || [];
 
                               loadingStage = 'จับคู่เปรียบเทียบกับราคากลางในระบบ...';

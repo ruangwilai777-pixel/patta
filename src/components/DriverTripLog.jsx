@@ -75,7 +75,7 @@ const DriverTripLog = ({ trips, currentMonth, currentYear, driverName, isDriverC
                 }}>
                     <thead>
                         <tr style={{ background: '#f8fafc', color: '#1e293b' }}>
-                            <th style={{ border: '1px solid #cbd5e1', padding: '10px 4px', width: '35px', fontWeight: '700' }}>ที่</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '10px 4px', width: '65px', fontWeight: '700' }}>วันที่</th>
                             <th style={{ border: '1px solid #cbd5e1', padding: '10px 4px', width: '45px', fontWeight: '700' }}>วัน</th>
                             <th style={{ border: '1px solid #cbd5e1', padding: '10px 8px', fontWeight: '700', textAlign: 'left' }}>สายวิ่ง</th>
                             <th style={{ border: '1px solid #cbd5e1', padding: '10px 8px', width: '85px', fontWeight: '700', textAlign: 'right' }}>ค่าเที่ยว</th>
@@ -88,7 +88,7 @@ const DriverTripLog = ({ trips, currentMonth, currentYear, driverName, isDriverC
                                 <React.Fragment key={day.dateStr}>
                                     {day.trips.length === 0 ? (
                                         <tr style={{ background: '#fff' }}>
-                                            <td style={{ border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '700', color: '#1e293b', padding: '8px 4px' }}>{day.dayNum}</td>
+                                            <td style={{ border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '700', color: '#1e293b', padding: '8px 4px', whiteSpace: 'nowrap' }}>{day.dayNum} {day.monthLabel}</td>
                                             <td style={{ border: '1px solid #cbd5e1', textAlign: 'center', color: '#64748b', padding: '8px 4px' }}>{day.dayLabel}</td>
                                             <td style={{ border: '1px solid #cbd5e1', textAlign: 'center', color: '#cbd5e1', padding: '8px 8px' }}>-</td>
                                             <td style={{ border: '1px solid #cbd5e1', textAlign: 'right', color: '#cbd5e1', padding: '8px 8px' }}>-</td>
@@ -99,7 +99,7 @@ const DriverTripLog = ({ trips, currentMonth, currentYear, driverName, isDriverC
                                             <tr key={`${day.dateStr}-${t.id || tIdx}`} style={{ background: '#fff' }}>
                                                 {tIdx === 0 ? (
                                                     <>
-                                                        <td rowSpan={day.trips.length} style={{ border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '700', color: '#1e293b', padding: '8px 4px' }}>{day.dayNum}</td>
+                                                        <td rowSpan={day.trips.length} style={{ border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '700', color: '#1e293b', padding: '8px 4px', whiteSpace: 'nowrap' }}>{day.dayNum} {day.monthLabel}</td>
                                                         <td rowSpan={day.trips.length} style={{ border: '1px solid #cbd5e1', textAlign: 'center', color: '#64748b', padding: '8px 4px' }}>{day.dayLabel}</td>
                                                     </>
                                                 ) : null}
