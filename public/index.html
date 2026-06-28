@@ -1034,12 +1034,6 @@
                       <td style="padding: 12px;">
                           <input type="date" class="ai-date-input" data-id="${item.id}" value="${item.date}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 130px; font-weight: bold;" />
                       </td>
-                      <td style="padding: 12px;">
-                          <select class="ai-item-driver-select" data-id="${item.id}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; font-weight: bold; width: 100%;">
-                              <option value="" disabled ${!item.driver ? 'selected' : ''}>-- เลือกคนขับ --</option>
-                              ${registeredDrivers.map(d => `<option value="${d}" ${d === item.driver ? 'selected' : ''}>${d}</option>`).join('')}
-                          </select>
-                      </td>
                       <td style="padding: 12px; font-weight: bold; color: var(--text-main);">${item.originalRoute}</td>
                       <td style="padding: 12px;">
                           <input type="text" class="ai-route-override" data-id="${item.id}" value="${item.matchedRoute}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 90%; font-weight: bold;" />
@@ -1063,17 +1057,6 @@
                       if (trip) {
                           trip.selected = e.target.checked;
                           updateTotalSum();
-                      }
-                  };
-              });
-
-              // Bind item driver change
-              document.querySelectorAll('.ai-item-driver-select').forEach(sel => {
-                  sel.onchange = (e) => {
-                      const id = parseInt(e.target.dataset.id);
-                      const trip = parsedTrips.find(t => t.id === id);
-                      if (trip) {
-                          trip.driver = e.target.value;
                       }
                   };
               });
@@ -1170,7 +1153,7 @@
                                 const payload = {
                                     date: item.date,
                                     route: item.matchedRoute.trim(),
-                                    driver_name: item.driver || 'ไม่ระบุชื่อ',
+                                    driver_name: activeDriverName || 'สมชาย',
                                     price: parseFloat(item.price) || 0,
                                     wage: parseFloat(item.wage) || 0,
                                     fuel: 0,
