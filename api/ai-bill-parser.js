@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { pdfBase64, mimeType, routePresets } = req.body || {};
+  const { pdfBase64, mimeType, routePresets, drivers } = req.body || {};
 
   if (!pdfBase64) {
     return res.status(400).json({ error: 'Missing pdfBase64 in request body' });
@@ -57,6 +57,10 @@ export default async function handler(req, res) {
 กรุณาเปรียบเทียบชื่อเส้นทาง/สายงานที่เขียนในเอกสาร กับรายชื่อเส้นทางจริงในระบบดังต่อไปนี้ เพื่อระบุค่า "route" ให้ตรงกับในระบบของเรามากที่สุด (หากในเอกสารเขียนสายงานและไม่มีตรงเป๊ะ ให้พยายามดึงรหัสสายงาน เช่น 510, 514 ออกมา):
 ${JSON.stringify(routePresets || [])}
 
+**การจับคู่พนักงานขับรถ (Driver Mapping):**
+กรุณาตรวจสอบว่าในแต่ละเที่ยววิ่งระบุเลขทะเบียนรถหรือชื่อคนขับเป็นใคร แล้วนำไปจับคู่เปรียบเทียบกับรายชื่อพนักงานขับรถในระบบเราด้านล่างนี้ เพื่อระบุค่า "driver" ให้ตรงกับชื่อระบบของเรามากที่สุด (หากไม่มีข้อมูลทะเบียน/ชื่อให้ระบุ หรือไม่สามารถระบุได้ ให้ใส่เป็นค่าว่างหรือไม่ระบุ):
+${JSON.stringify(drivers || [])}
+
 **การวิเคราะห์งวดเดือนและปี (Date Detection):**
 กรุณาค้นหาว่างวดบัญชีหรือวันที่ของเอกสารนี้ เป็น เดือน อะไร และ ปี อะไร:
 - detectedMonth: ให้ระบุเป็นตัวเลข 0 ถึง 11 (0 = มกราคม, 11 = ธันวาคม)
@@ -73,7 +77,8 @@ ${JSON.stringify(routePresets || [])}
     {
       "date": "2026-06-20",
       "route": "ชื่อสายงานที่ได้จากการดึงข้อมูลหรือจับคู่",
-      "price": 5016
+      "price": 5016,
+      "driver": "ชื่อพนักงานขับรถที่ตรงกับระบบเรา (เช่น สมชาย)"
     }
   ],
   "detectedMonth": 5, 

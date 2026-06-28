@@ -1114,75 +1114,74 @@
               // Sync Button Click
                const syncBtn = document.getElementById('ai-sync-btn');
                if (syncBtn) {
-                   syncBtn.onclick = async () => {
-                       const selectedItems = parsedTrips.filter(t => t.selected);
-                       if (selectedItems.length === 0) {
-                           alert('กรุณาเลือกรายการที่ต้องการบันทึกอย่างน้อย 1 รายการครับ');
-                           return;
-                       }
+                    syncBtn.onclick = async () => {
+                        const selectedItems = parsedTrips.filter(t => t.selected);
+                        if (selectedItems.length === 0) {
+                            alert('กรุณาเลือกรายการที่ต้องการบันทึกอย่างน้อย 1 รายการครับ');
+                            return;
+                        }
 
-                       const finalDriver = manualDriver || activeDriverName;
-                       if (!finalDriver) {
-                           alert('กรุณาเลือกพนักงานขับรถก่อนบันทึกข้อมูลครับ');
-                           return;
-                       }
+                        // Check if all selected items have a driver selected
+                        const missingDriverItem = selectedItems.find(t => !t.driver);
+                        if (missingDriverItem) {
+                            alert(`กรุณาเลือกพนักงานขับรถสำหรับเที่ยววิ่งสาย "${missingDriverItem.matchedRoute}" วันที่ ${missingDriverItem.date} ก่อนบันทึกเข้าระบบครับ`);
+                            return;
+                        }
 
-                       const confirmMsg = `ต้องการบันทึกรายการเที่ยววิ่งของ "${finalDriver}" จำนวน ${selectedItems.length} รายการ เข้าระบบใช่หรือไม่? (ยอดรวม ฿${selectedItems.reduce((acc, t) => acc + t.price, 0).toLocaleString()})`;
-                       if (!confirm(confirmMsg)) return;
+                        const confirmMsg = `ต้องการบันทึกรายการเที่ยววิ่งจำนวน ${selectedItems.length} เที่ยว เข้าระบบใช่หรือไม่? (ยอดรวม ฿${selectedItems.reduce((acc, t) => acc + t.price, 0).toLocaleString()})`;
+                        if (!confirm(confirmMsg)) return;
 
-                       isLoading = true;
-                       loadingStage = 'กำลังบันทึกตารางเที่ยววิ่งเข้าฐานข้อมูล Supabase...';
-                       renderImporterUI();
+                        isLoading = true;
+                        loadingStage = 'กำลังบันทึกตารางเที่ยววิ่งของคนขับแต่ละท่านเข้าฐานข้อมูล Supabase...';
+                        renderImporterUI();
 
-                       try {
-                           let successCount = 0;
-                           let failedCount = 0;
+                        try {
+                            let successCount = 0;
+                            let failedCount = 0;
 
-                           for (const item of selectedItems) {
-                               const payload = {
-                                   date: item.date,
-                                   route: item.matchedRoute.trim(),
-                                   driver_name: finalDriver,
-                                   price: parseFloat(item.price) || 0,
-                                   wage: parseFloat(item.wage) || 0,
-                                   fuel: 0,
-                                   basket: 0,
-                                   maintenance: 0,
-                                   advance: 0,
-                                   staff_share: 0,
-                                   basket_count: 0
-                               };
+                            for (const item of selectedItems) {
+                                const payload = {
+                                    date: item.date,
+                                    route: item.matchedRoute.trim(),
+                                    driver_name: item.driver,
+                                    price: parseFloat(item.price) || 0,
+                                    wage: parseFloat(item.wage) || 0,
+                                    fuel: 0,
+                                    basket: 0,
+                                    maintenance: 0,
+                                    advance: 0,
+                                    staff_share: 0,
+                                    basket_count: 0
+                                };
 
-                               const { error: insertErr } = await sbClient.from('trips').insert([payload]);
-                               if (insertErr) {
-                                   console.error("Error inserting trip:", insertErr);
-                                   failedCount++;
-                               } else {
-                                   successCount++;
-                               }
-                           }
+                                const { error: insertErr } = await sbClient.from('trips').insert([payload]);
+                                if (insertErr) {
+                                    console.error("Error inserting trip:", insertErr);
+                                    failedCount++;
+                                } else {
+                                    successCount++;
+                                }
+                            }
 
-                           syncResult = { updatedCount: successCount, failedCount };
-                           parsedTrips = [];
-                           selectedFile = null;
-                           detectedMonth = null;
-                           detectedYear = null;
-                           rawAiPresets = [];
+                            syncResult = { updatedCount: successCount, failedCount };
+                            parsedTrips = [];
+                            selectedFile = null;
+                            detectedMonth = null;
+                            detectedYear = null;
+                            rawAiPresets = [];
 
-                           alert(`บันทึกข้อมูลเที่ยววิ่งสำเร็จ ${successCount} เที่ยว! (ล้มเหลว ${failedCount} เที่ยว)`);
-                           window.location.reload();
+                            alert(`บันทึกข้อมูลเที่ยววิ่งเรียบร้อยแล้วสำเร็จ ${successCount} เที่ยว! (ล้มเหลว ${failedCount} เที่ยว)`);
+                            window.location.reload();
 
-                       } catch (err) {
-                           console.error(err);
-                           alert(`เกิดข้อผิดพลาดในการซิงก์ข้อมูล: ${err.message}`);
-                       } finally {
-                           isLoading = false;
-                           loadingStage = '';
-                           renderImporterUI();
-                       }
-                   };
-               }
-          }
+                        } catch (err) {
+                            console.error(err);
+                            alert(`เกิดข้อผิดพลาดในการซิงก์ข้อมูล: ${err.message}`);
+                        } finally {
+                            isLoading = false;
+                            loadingStage = '';
+                            renderImporterUI();
+                        }
+                    };
 
           function updateTotalSum() {
               const totalEl = document.getElementById('ai-total-price');
