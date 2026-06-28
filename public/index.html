@@ -676,29 +676,38 @@
                   'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'
               ];
 
-              // Determine active month and year to display
-              let activeMonth = manualMonth !== null ? manualMonth : period.month;
-              let activeYear = manualYear !== null ? manualYear : period.year;
+               // Determine active month and year to display
+               let activeMonth = manualMonth !== null ? manualMonth : period.month;
+               let activeYear = manualYear !== null ? manualYear : period.year;
 
-              let monthStatusHtml = `
-                  <div style="font-size: 0.82rem; color: var(--text-main); font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
-                      <div style="display: flex; justify-content: space-between; align-items: center;">
-                          <span>📅 งวดเดือนที่จะบันทึกราคากลาง:</span>
-                          <div style="display: flex; gap: 6px; align-items: center;">
-                              ${detectedMonth !== null ? `<span style="color: #a78bfa; font-size: 0.68rem; font-weight: 800; background: rgba(167,139,250,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(167,139,250,0.2);">AI ตรวจพบ: ${monthNames[detectedMonth]}</span>` : ''}
-                              ${manualMonth !== null ? '<span style="color: #3b82f6; font-size: 0.68rem; font-weight: 800; background: rgba(59,130,246,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.2);">คุณเลือกเอง</span>' : '<span style="color: var(--text-dim); font-size: 0.68rem; font-weight: 800;">อิงตามหน้าจอ</span>'}
-                          </div>
-                      </div>
-                      <div style="display: flex; gap: 8px; width: 100%;">
-                          <select id="ai-month-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
-                              ${monthNames.map((m, idx) => `<option value="${idx}" ${idx === activeMonth ? 'selected' : ''}>${m}</option>`).join('')}
-                          </select>
-                          <select id="ai-year-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
-                              ${[2024, 2025, 2026, 2027, 2028].map(y => `<option value="${y}" ${y === activeYear ? 'selected' : ''}>${y + 543}</option>`).join('')}
-                          </select>
-                      </div>
-                  </div>
-              `;
+               const prevMonthIdx = (activeMonth - 1 + 12) % 12;
+               const prevYear = activeMonth === 0 ? activeYear - 1 : activeYear;
+               const cycleStartStr = `20 ${monthNames[prevMonthIdx]} ${prevYear + 543}`;
+               const cycleEndStr = `19 ${monthNames[activeMonth]} ${activeYear + 543}`;
+
+               let monthStatusHtml = `
+                   <div style="font-size: 0.82rem; color: var(--text-main); font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                       <div style="display: flex; justify-content: space-between; align-items: center;">
+                           <span>📅 งวดเดือนที่จะบันทึกราคากลาง:</span>
+                           <div style="display: flex; gap: 6px; align-items: center;">
+                               ${detectedMonth !== null ? `<span style="color: #a78bfa; font-size: 0.68rem; font-weight: 800; background: rgba(167,139,250,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(167,139,250,0.2);">AI ตรวจพบ: ${monthNames[detectedMonth]}</span>` : ''}
+                               ${manualMonth !== null ? '<span style="color: #3b82f6; font-size: 0.68rem; font-weight: 800; background: rgba(59,130,246,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.2);">คุณเลือกเอง</span>' : '<span style="color: var(--text-dim); font-size: 0.68rem; font-weight: 800;">อิงตามหน้าจอ</span>'}
+                           </div>
+                       </div>
+                       <div style="display: flex; gap: 8px; width: 100%;">
+                           <select id="ai-month-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
+                               ${monthNames.map((m, idx) => `<option value="${idx}" ${idx === activeMonth ? 'selected' : ''}>${m}</option>`).join('')}
+                           </select>
+                           <select id="ai-year-select" class="custom-select" style="flex: 1; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff;">
+                               ${[2024, 2025, 2026, 2027, 2028].map(y => `<option value="${y}" ${y === activeYear ? 'selected' : ''}>${y + 543}</option>`).join('')}
+                           </select>
+                       </div>
+                       <div style="font-size: 0.72rem; color: #10b981; font-weight: 800; display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                           <div style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></div>
+                           รอบบิลที่จะลงราคา: ${cycleStartStr} – ${cycleEndStr}
+                       </div>
+                   </div>
+               `;
 
               contentEl.innerHTML = `
                   <div style="display: flex; flex-direction: column; gap: 1.5rem;">
