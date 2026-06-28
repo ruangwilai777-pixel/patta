@@ -244,55 +244,6 @@
     if (window.location.pathname.includes('/admin') && !window.location.hash.includes('admin')) {
       window.location.replace('/#/admin');
     }
-
-    // Global Fetch Interceptor to align driver route presets with their billing cycle
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        let [resource, config] = args;
-        if (typeof resource === 'string' && resource.includes('/rest/v1/route_presets')) {
-            const dateInput = document.querySelector('input[type="date"]:not(#ai-start-date):not(#ai-end-date)');
-            if (dateInput && dateInput.value) {
-                const [y, m, d] = dateInput.value.split('-').map(Number);
-                let billingMonth = m; 
-                let billingYear = y;
-                if (d >= 20) {
-                    billingMonth += 1;
-                    if (billingMonth > 12) {
-                        billingMonth = 1;
-                        billingYear += 1;
-                    }
-                }
-                
-                try {
-                    const url = new URL(resource, window.location.origin);
-                    const routeParam = url.searchParams.get('route') || url.searchParams.get('route_name') || '';
-                    const match = routeParam.match(/_(\d+)_(\d+)/);
-                    if (match) {
-                        const reqMonth = parseInt(match[1]);
-                        const reqYear = parseInt(match[2]);
-                        if (reqMonth === m && (reqMonth !== billingMonth || reqYear !== billingYear)) {
-                            const oldSuffix = `_${reqMonth}_${reqYear}`;
-                            const newSuffix = `_${billingMonth}_${billingYear}`;
-                            let newUrlStr = resource.replace(oldSuffix, newSuffix);
-                            
-                            const reqYearShort = String(reqYear).slice(-2);
-                            const billingYearShort = String(billingYear).slice(-2);
-                            const oldSuffixShort = `_${reqMonth}_${reqYearShort}`;
-                            const newSuffixShort = `_${billingMonth}_${billingYearShort}`;
-                            newUrlStr = newUrlStr.replace(oldSuffixShort, newSuffixShort);
-
-                            console.log(`[API Patch] Redirecting presets request from ${oldSuffix} to ${newSuffix} based on trip date ${dateInput.value}`);
-                            resource = newUrlStr;
-                            args[0] = resource;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error in fetch interceptor:", e);
-                }
-            }
-        }
-        return originalFetch.apply(this, args);
-    };
   </script>
 
   <div id="root"></div>
