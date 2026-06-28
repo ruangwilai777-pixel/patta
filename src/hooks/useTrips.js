@@ -415,7 +415,7 @@ export const useTrips = () => {
             const enriched = { ...t };
             const preset = routePresets[t.route.trim()];
             if (preset) {
-                if (!enriched.price || enriched.price === 0) enriched.price = preset.price || 0;
+                // Do not fallback price to preset to allow distinguishing unsynced vs synced trips
                 if (!enriched.wage || enriched.wage === 0) enriched.wage = preset.wage || 0;
             }
             // Recompute profit based on enriched price and wage
