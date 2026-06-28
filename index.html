@@ -11,6 +11,13 @@
   <link rel="apple-touch-icon" href="/assets/icon-192-cx0PZKN5.png?v=2.1" />
   <link rel="manifest" href="/assets/driver-CfVGt545.webmanifest?v=2.1" />
   <style>
+    /* Desktop view for Admin Panel: expand the container width */
+    @media (min-width: 768px) {
+      body.admin-page-active .driver-landscape-ios {
+        max-width: 1200px !important;
+      }
+    }
+
     @media (max-width: 1200px) {
 
       html,
@@ -1253,7 +1260,12 @@
           }
 
           // Run tab states and fullscreen features periodically
-          setInterval(() => {
+           setInterval(() => {
+              if (window.location.hash.includes('admin')) {
+                  document.body.classList.add('admin-page-active');
+              } else {
+                  document.body.classList.remove('admin-page-active');
+              }
               syncSettingsAiImporter();
 
               // Fullscreen button
