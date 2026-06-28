@@ -1234,17 +1234,7 @@
                   return el.style.paddingBottom === '130px';
               });
 
-              // Debug Logger
-              try {
-                  let debugEl = document.getElementById('ai-debug-log');
-                  if (!debugEl) {
-                      debugEl = document.createElement('div');
-                      debugEl.id = 'ai-debug-log';
-                      debugEl.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:99999;background:rgba(0,0,0,0.8);color:#fff;padding:8px;font-size:10px;font-family:monospace;border-radius:4px;max-width:300px;word-break:break-all;pointer-events:none;';
-                      document.body.appendChild(debugEl);
-                  }
-                  debugEl.textContent = `Tick: ${new Date().toLocaleTimeString()} | adminContent: ${!!adminContent} | divsCount: ${document.querySelectorAll('div').length} | hash: ${window.location.hash}`;
-              } catch(e) {}
+
 
               if (!adminContent) {
                   lastActiveMonthStr = '';
