@@ -1124,6 +1124,12 @@
                             return;
                         }
 
+                         // Get active driver name from DOM dynamically
+                         const activeDriverEl = Array.from(document.querySelectorAll('.driver-selector-premium > div')).find(el => {
+                             return el.style.background === 'rgb(15, 23, 42)' || el.style.backgroundColor === 'rgb(15, 23, 42)' || el.classList.contains('active');
+                         });
+                         const activeDriverName = activeDriverEl ? activeDriverEl.textContent.trim() : '';
+
 
 
                         const confirmMsg = `ต้องการบันทึกรายการเที่ยววิ่งจำนวน ${selectedItems.length} เที่ยว เข้าระบบใช่หรือไม่? (ยอดรวม ฿${selectedItems.reduce((acc, t) => acc + t.price, 0).toLocaleString()})`;
