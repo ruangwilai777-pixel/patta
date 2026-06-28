@@ -1153,12 +1153,7 @@
                             return;
                         }
 
-                        // Check if all selected items have a driver selected
-                        const missingDriverItem = selectedItems.find(t => !t.driver);
-                        if (missingDriverItem) {
-                            alert(`กรุณาเลือกพนักงานขับรถสำหรับเที่ยววิ่งสาย "${missingDriverItem.matchedRoute}" วันที่ ${missingDriverItem.date} ก่อนบันทึกเข้าระบบครับ`);
-                            return;
-                        }
+
 
                         const confirmMsg = `ต้องการบันทึกรายการเที่ยววิ่งจำนวน ${selectedItems.length} เที่ยว เข้าระบบใช่หรือไม่? (ยอดรวม ฿${selectedItems.reduce((acc, t) => acc + t.price, 0).toLocaleString()})`;
                         if (!confirm(confirmMsg)) return;
@@ -1175,7 +1170,7 @@
                                 const payload = {
                                     date: item.date,
                                     route: item.matchedRoute.trim(),
-                                    driver_name: item.driver,
+                                    driver_name: item.driver || 'ไม่ระบุชื่อ',
                                     price: parseFloat(item.price) || 0,
                                     wage: parseFloat(item.wage) || 0,
                                     fuel: 0,
