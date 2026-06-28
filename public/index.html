@@ -449,6 +449,7 @@
           let manualMonth = null;
           let manualYear = null;
           let rawAiPresets = [];
+          let manualDriver = null;
 
           // Helper to get active month and year from DOM
           function getActiveMonthAndYear() {
@@ -549,69 +550,59 @@
               }
           }
 
-          // Perform matching and enrichment of AI parsed routes against target presets
-          async function performMatchingAndEnrichment() {
-              if (!sbClient) return;
-              try {
-                  const period = getActiveMonthAndYear();
-                  let targetMonth = manualMonth !== null ? manualMonth : period.month;
-                  let targetYear = manualYear !== null ? manualYear : period.year;
+           function getLocalDate() {
+               const d = new Date();
+               const year = d.getFullYear();
+               const month = String(d.getMonth() + 1).padStart(2, '0');
+               const day = String(d.getDate()).padStart(2, '0');
+               return `${year}-${month}-${day}`;
+           }
 
-                  const suffix = `_${targetMonth + 1}_${targetYear}`;
-                  const suffixShort = `_${targetMonth + 1}_${String(targetYear).slice(-2)}`;
+           // Perform matching and enrichment of AI parsed routes against target presets
+           async function performMatchingAndEnrichment() {
+               if (!sbClient) return;
+               try {
+                   const period = getActiveMonthAndYear();
+                   let targetMonth = manualMonth !== null ? manualMonth : period.month;
+                   let targetYear = manualYear !== null ? manualYear : period.year;
 
-                  const { data: dbPresets } = await sbClient.from('route_presets').select('*');
-                  const targetPresets = {};
-                  if (dbPresets) {
-                      dbPresets.forEach(p => {
-                          const rName = p.route_name || p.name || p.route || 'Unknown';
-                          if (rName.includes(suffix) || rName.includes(suffixShort)) {
-                              const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
-                              targetPresets[cleanName] = { price: p.price, wage: p.wage };
-                          }
-                      });
-                  }
+                   const suffix = `_${targetMonth + 1}_${targetYear}`;
+                   const suffixShort = `_${targetMonth + 1}_${String(targetYear).slice(-2)}`;
 
-                  const filteredPresets = rawAiPresets.filter(item => {
-                      const p = parseFloat(item.price);
-                      return p !== 300 && p !== 600 && p !== 1000 && p > 0;
-                  });
+                   const { data: dbPresets } = await sbClient.from('route_presets').select('*');
+                   const targetPresets = {};
+                   if (dbPresets) {
+                       dbPresets.forEach(p => {
+                           const rName = p.route_name || p.name || p.route || 'Unknown';
+                           if (rName.includes(suffix) || rName.includes(suffixShort)) {
+                               const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
+                               targetPresets[cleanName] = { price: p.price, wage: p.wage };
+                           }
+                       });
+                   }
 
-                  const enriched = filteredPresets.map((item, index) => {
-                      const cleanRoute = (item.route || '').trim();
-                      const matchedPreset = targetPresets[cleanRoute];
-                      
-                      let action = 'create';
-                      let statusText = 'สร้างสายงานใหม่';
-                      let selected = true;
-                      
-                      if (matchedPreset) {
-                          if (parseFloat(matchedPreset.price) === parseFloat(item.price)) {
-                              action = 'skip';
-                              statusText = 'ตรงกับระบบแล้ว';
-                              selected = false;
-                          } else {
-                              action = 'update';
-                              statusText = `อัปเดตราคากลาง (เดิม ฿${matchedPreset.price})`;
-                          }
-                      }
+                   const enriched = rawAiPresets.map((item, index) => {
+                       const cleanRoute = (item.route || '').trim();
+                       const matchedPreset = targetPresets[cleanRoute];
+                       
+                       const wage = matchedPreset ? (parseFloat(matchedPreset.wage) || 0) : 0;
+                       
+                       return {
+                           id: index,
+                           date: item.date || getLocalDate(),
+                           originalRoute: cleanRoute,
+                           matchedRoute: cleanRoute,
+                           price: parseFloat(item.price) || 0,
+                           wage: wage,
+                           selected: true
+                       };
+                   });
 
-                      return {
-                          id: index,
-                          originalRoute: cleanRoute,
-                          matchedRoute: cleanRoute,
-                          price: parseFloat(item.price) || 0,
-                          statusText: statusText,
-                          selected: selected,
-                          action: action
-                      };
-                  });
-
-                  parsedTrips = enriched;
-              } catch (err) {
-                  console.error("Error matching presets:", err);
-              }
-          }
+                   parsedTrips = enriched;
+               } catch (err) {
+                   console.error("Error matching presets:", err);
+               }
+           }
 
           // Render Main Importer HTML inside target element
           let isAiCollapsed = localStorage.getItem('aiImporterCollapsed') !== 'false';
@@ -636,6 +627,13 @@
                const cycleStartStr = `20 ${monthNames[prevMonthIdx]} ${prevYear + 543}`;
                const cycleEndStr = `19 ${monthNames[activeMonth]} ${activeYear + 543}`;
 
+               // Get selected driver from DOM
+               const activeDriverEl = Array.from(document.querySelectorAll('.driver-selector-premium > div')).find(el => {
+                   return el.style.background === 'rgb(15, 23, 42)' || el.style.backgroundColor === 'rgb(15, 23, 42)' || el.classList.contains('active');
+               });
+               const activeDriverName = activeDriverEl ? activeDriverEl.textContent.trim() : '';
+               const allDrivers = Array.from(document.querySelectorAll('.driver-selector-premium > div')).map(el => el.textContent.trim()).filter(Boolean);
+
                let monthStatusHtml = `
                    <div style="font-size: 0.82rem; color: var(--text-main); font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
                        <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -657,6 +655,15 @@
                            <div style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></div>
                            รอบบิลที่จะลงราคา: ${cycleStartStr} – ${cycleEndStr}
                        </div>
+                       
+                       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px dashed var(--glass-border); padding-top: 8px;">
+                           <span>👤 พนักงานขับรถ:</span>
+                           <span style="color: #3b82f6; font-size: 0.68rem; font-weight: 800;">${activeDriverName ? `เลือกตามหน้าจอ: ${activeDriverName}` : 'กรุณาเลือกคนขับ'}</span>
+                       </div>
+                       <select id="ai-driver-select" class="custom-select" style="width: 100%; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff; margin-top: 2px;">
+                           ${activeDriverName ? '' : '<option value="" disabled selected>-- เลือกพนักงานขับรถ --</option>'}
+                           ${allDrivers.map(d => `<option value="${d}" ${d === (manualDriver || activeDriverName) ? 'selected' : ''}>${d}</option>`).join('')}
+                       </select>
                    </div>
                `;
 
@@ -670,7 +677,7 @@
                                     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                                     <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5z"/>
                                     <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/>
-                                  </svg> ✨ นำเข้าราคากลางค่าเที่ยวประจำเดือนด้วย AI (Gemini 2.5)
+                                  </svg> ✨ นำเข้าเที่ยววิ่งและราคาตามบิลด้วย AI (Gemini 2.5)
                               </span>
                               <span style="font-size: 0.8rem; color: #a78bfa; font-weight: 700; display: flex; align-items: center; gap: 4px;">
                                   ${isAiCollapsed ? 'แสดงเครื่องมือ ▾' : 'ซ่อนเครื่องมือ ▴'}
@@ -750,7 +757,7 @@
                               <div>
                                   <div style="font-size: 0.88rem; font-weight: 800;">บันทึกข้อมูลเรียบร้อยแล้วเจ้า!</div>
                                   <div style="font-size: 0.75rem; color: rgba(255,255,255,0.7);">
-                                      บันทึกราคาค่าเที่ยวสำเร็จ ${syncResult.updatedCount} รายการ | ล้มเหลว ${syncResult.failedCount} รายการ
+                                      บันทึกรายการเที่ยววิ่งสำเร็จ ${syncResult.updatedCount} รายการ | ล้มเหลว ${syncResult.failedCount} รายการ
                                   </div>
                               </div>
                           </div>
@@ -761,8 +768,8 @@
                           <div class="glass-card" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1.5rem; backdrop-filter: blur(20px);">
                               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
                                   <div>
-                                      <h3 style="font-size: 0.92rem; font-weight: 800; color: var(--text-main); margin: 0;">📋 ตารางพรีวิวยอดราคากลางค่าเที่ยวที่ AI วิเคราะห์ได้</h3>
-                                      <p style="font-size: 0.7rem; color: var(--text-dim); margin: 2px 0 0 0;">*ระบบจะคัดกรองค่าตะกร้าออกโดยอัตโนมัติ กรุณาตรวจสอบข้อมูลและกดบันทึก</p>
+                                      <h3 style="font-size: 0.92rem; font-weight: 800; color: var(--text-main); margin: 0;">📋 ตารางพรีวิวยอดเที่ยววิ่งที่ AI วิเคราะห์ได้</h3>
+                                      <p style="font-size: 0.7rem; color: var(--text-dim); margin: 2px 0 0 0;">*ระบบจะคัดกรองค่าตะกร้าออกโดยอัตโนมัติ กรุณาตรวจสอบ วันที่, สายงาน, ราคา, และค่าจ้าง ก่อนกดบันทึก</p>
                                   </div>
                                   <div style="display: flex; gap: 8px;">
                                       <button id="ai-select-all-btn" style="background: transparent; border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 10px; font-size: 0.7rem; color: var(--text-dim); cursor: pointer; font-weight: 700;">เลือกทั้งหมด</button>
@@ -775,10 +782,11 @@
                                       <thead>
                                           <tr style="border-bottom: 1px solid var(--glass-border);">
                                               <th style="width: 40px;"></th>
+                                              <th style="width: 140px;">วันที่วิ่ง</th>
                                               <th>สายงานในเอกสาร</th>
-                                              <th>สายงานในระบบ (Manual Override)</th>
-                                              <th style="text-align: right;">ราคากลางค่าเที่ยวต่อรอบ</th>
-                                              <th style="text-align: center;">สถานะ/การดำเนินการ</th>
+                                              <th>สายงานในระบบ</th>
+                                              <th style="text-align: right; width: 120px;">ราคาค่าเที่ยว (บาท)</th>
+                                              <th style="text-align: right; width: 120px;">ค่าจ้างพนักงาน (บาท)</th>
                                           </tr>
                                       </thead>
                                       <tbody id="ai-table-body">
@@ -789,7 +797,7 @@
                               <!-- Footer & Sync -->
                               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1.25rem; border-top: 1px solid var(--glass-border); flex-wrap: wrap; gap: 1rem;">
                                   <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 700;">
-                                      ยอดรวมราคากลางที่เลือก: <span id="ai-total-price" style="color: #2dd4bf; font-size: 1.1rem; font-weight: 900; margin-left: 6px;">฿0</span>
+                                      ยอดรวมค่าเที่ยวที่เลือก: <span id="ai-total-price" style="color: #2dd4bf; font-size: 1.1rem; font-weight: 900; margin-left: 6px;">฿0</span>
                                   </div>
                                   <button id="ai-sync-btn" class="custom-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
                                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -852,7 +860,14 @@
                           if (parsedTrips.length > 0) {
                               renderTableRows();
                           }
-                      };
+                      }
+
+                   const driverSel = document.getElementById('ai-driver-select');
+                   if (driverSel) {
+                       driverSel.onchange = (e) => {
+                           manualDriver = e.target.value;
+                       };
+                   };
                   }
                   
                   if (fileInput) {
@@ -940,7 +955,7 @@
                               }
 
                               const data = await response.json();
-                              if (!data.presets || !Array.isArray(data.presets)) {
+                              if (!data.trips || !Array.isArray(data.trips)) {
                                   throw new Error('AI ส่งผลลัพธ์ข้อมูลกลับมาไม่ถูกต้อง');
                               }
 
@@ -959,9 +974,9 @@
                                   detectedYear = null;
                                   manualYear = null;
                               }
-                              rawAiPresets = data.presets || [];
+                              rawAiPresets = data.trips || [];
 
-                              loadingStage = 'จับคู่เปรียบเทียบกับราคากลางในระบบ...';
+                              loadingStage = 'ค้นหาราคากลางและคำนวณค่าจ้างพนักงาน...';
                               renderImporterUI();
 
                               await performMatchingAndEnrichment();
@@ -997,29 +1012,23 @@
                   const tr = document.createElement('tr');
                   tr.style.borderBottom = '1px solid var(--glass-border)';
 
-                  let actionText = '';
-                  let actionColor = '';
-                  if (item.action === 'skip') {
-                      actionText = '✅ ตรงกับระบบแล้ว';
-                      actionColor = '#10b981';
-                  } else if (item.action === 'update') {
-                      actionText = '🔄 อัปเดตราคากลาง';
-                      actionColor = '#f59e0b';
-                  } else {
-                      actionText = '➕ สร้างสายงานใหม่';
-                      actionColor = '#3b82f6';
-                  }
-
                   tr.innerHTML = `
                       <td style="text-align: center; padding: 12px 6px;">
                           <input type="checkbox" class="ai-item-checkbox" data-id="${item.id}" ${item.selected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;" />
+                      </td>
+                      <td style="padding: 12px;">
+                          <input type="date" class="ai-date-input" data-id="${item.id}" value="${item.date}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 130px; font-weight: bold;" />
                       </td>
                       <td style="padding: 12px; font-weight: bold; color: var(--text-main);">${item.originalRoute}</td>
                       <td style="padding: 12px;">
                           <input type="text" class="ai-route-override" data-id="${item.id}" value="${item.matchedRoute}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 90%; font-weight: bold;" />
                       </td>
-                      <td style="padding: 12px; text-align: right; font-weight: 800; color: #34d399;">฿${item.price.toLocaleString()}</td>
-                      <td style="padding: 12px; text-align: center; font-weight: 800; color: ${actionColor}; font-size: 0.78rem;">${actionText}</td>
+                      <td style="padding: 12px; text-align: right;">
+                          <input type="number" class="ai-price-input" data-id="${item.id}" value="${item.price}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: #34d399; font-size: 0.8rem; width: 100px; text-align: right; font-weight: 800;" />
+                      </td>
+                      <td style="padding: 12px; text-align: right;">
+                          <input type="number" class="ai-wage-input" data-id="${item.id}" value="${item.wage}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: #60a5fa; font-size: 0.8rem; width: 100px; text-align: right; font-weight: 800;" />
+                      </td>
                   `;
 
                   tbody.appendChild(tr);
@@ -1037,6 +1046,17 @@
                   };
               });
 
+              // Bind date change
+              document.querySelectorAll('.ai-date-input').forEach(input => {
+                  input.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.date = e.target.value;
+                      }
+                  };
+              });
+
               // Bind text override change
               document.querySelectorAll('.ai-route-override').forEach(input => {
                   input.onchange = (e) => {
@@ -1044,6 +1064,29 @@
                       const trip = parsedTrips.find(t => t.id === id);
                       if (trip) {
                           trip.matchedRoute = e.target.value;
+                      }
+                  };
+              });
+
+              // Bind price change
+              document.querySelectorAll('.ai-price-input').forEach(input => {
+                  input.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.price = parseFloat(e.target.value) || 0;
+                          updateTotalSum();
+                      }
+                  };
+              });
+
+              // Bind wage change
+              document.querySelectorAll('.ai-wage-input').forEach(input => {
+                  input.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.wage = parseFloat(e.target.value) || 0;
                       }
                   };
               });
@@ -1069,80 +1112,76 @@
               }
 
               // Sync Button Click
-              const syncBtn = document.getElementById('ai-sync-btn');
-              if (syncBtn) {
-                  syncBtn.onclick = async () => {
-                      const selectedItems = parsedTrips.filter(t => t.selected);
-                      if (selectedItems.length === 0) {
-                          alert('กรุณาเลือกรายการที่ต้องการบันทึกอย่างน้อย 1 รายการครับ');
-                          return;
-                      }
+               const syncBtn = document.getElementById('ai-sync-btn');
+               if (syncBtn) {
+                   syncBtn.onclick = async () => {
+                       const selectedItems = parsedTrips.filter(t => t.selected);
+                       if (selectedItems.length === 0) {
+                           alert('กรุณาเลือกรายการที่ต้องการบันทึกอย่างน้อย 1 รายการครับ');
+                           return;
+                       }
 
-                      const confirmMsg = `ต้องการบันทึกราคากลางค่าเที่ยวจำนวน ${selectedItems.length} รายการ เข้าระบบใช่หรือไม่?`;
-                      if (!confirm(confirmMsg)) return;
+                       const finalDriver = manualDriver || activeDriverName;
+                       if (!finalDriver) {
+                           alert('กรุณาเลือกพนักงานขับรถก่อนบันทึกข้อมูลครับ');
+                           return;
+                       }
 
-                      isLoading = true;
-                      loadingStage = 'กำลังอัปโหลดราคากลางเข้าฐานข้อมูล Supabase...';
-                      renderImporterUI();
+                       const confirmMsg = `ต้องการบันทึกรายการเที่ยววิ่งของ "${finalDriver}" จำนวน ${selectedItems.length} รายการ เข้าระบบใช่หรือไม่? (ยอดรวม ฿${selectedItems.reduce((acc, t) => acc + t.price, 0).toLocaleString()})`;
+                       if (!confirm(confirmMsg)) return;
 
-                      try {
-                          const period = getActiveMonthAndYear();
-                          let targetMonth = manualMonth !== null ? manualMonth : period.month;
-                          let targetYear = manualYear !== null ? manualYear : period.year;
+                       isLoading = true;
+                       loadingStage = 'กำลังบันทึกตารางเที่ยววิ่งเข้าฐานข้อมูล Supabase...';
+                       renderImporterUI();
 
-                          const suffix = `_${targetMonth + 1}_${targetYear}`;
-                          let updatedCount = 0;
-                          let failedCount = 0;
+                       try {
+                           let successCount = 0;
+                           let failedCount = 0;
 
-                          for (const item of selectedItems) {
-                              const routeNameWithSuffix = `${item.matchedRoute.trim()}${suffix}`;
-                              
-                              let { error: upsertErr } = await sbClient.from('route_presets').upsert({
-                                  route: routeNameWithSuffix,
-                                  price: parseFloat(item.price),
-                                  wage: 0
-                              }, { onConflict: 'route' });
+                           for (const item of selectedItems) {
+                               const payload = {
+                                   date: item.date,
+                                   route: item.matchedRoute.trim(),
+                                   driver_name: finalDriver,
+                                   price: parseFloat(item.price) || 0,
+                                   wage: parseFloat(item.wage) || 0,
+                                   fuel: 0,
+                                   basket: 0,
+                                   maintenance: 0,
+                                   advance: 0,
+                                   staff_share: 0,
+                                   basket_count: 0
+                               };
 
-                              if (upsertErr) {
-                                  console.warn("Upsert with 'route' failed, trying fallback to 'route_name'...", upsertErr.message);
-                                  const fallback = await sbClient.from('route_presets').upsert({
-                                      route_name: routeNameWithSuffix,
-                                      price: parseFloat(item.price),
-                                      wage: 0
-                                  }, { onConflict: 'route_name' });
-                                  upsertErr = fallback.error;
-                              }
+                               const { error: insertErr } = await sbClient.from('trips').insert([payload]);
+                               if (insertErr) {
+                                   console.error("Error inserting trip:", insertErr);
+                                   failedCount++;
+                               } else {
+                                   successCount++;
+                               }
+                           }
 
-                              if (upsertErr) {
-                                  console.error("Error upserting route preset:", upsertErr);
-                                  failedCount++;
-                              } else {
-                                  updatedCount++;
-                              }
-                          }
+                           syncResult = { updatedCount: successCount, failedCount };
+                           parsedTrips = [];
+                           selectedFile = null;
+                           detectedMonth = null;
+                           detectedYear = null;
+                           rawAiPresets = [];
 
-                          syncResult = { updatedCount, failedCount };
-                          parsedTrips = [];
-                          selectedFile = null;
-                          detectedMonth = null;
-                          detectedYear = null;
-                          rawAiPresets = [];
+                           alert(`บันทึกข้อมูลเที่ยววิ่งสำเร็จ ${successCount} เที่ยว! (ล้มเหลว ${failedCount} เที่ยว)`);
+                           window.location.reload();
 
-                          // Refresh React presets state instantly
-                          if (window.fetchPresets) {
-                              await window.fetchPresets(targetMonth, targetYear);
-                          }
-
-                      } catch (err) {
-                          console.error(err);
-                          alert(`เกิดข้อผิดพลาดในการซิงก์ข้อมูล: ${err.message}`);
-                      } finally {
-                          isLoading = false;
-                          loadingStage = '';
-                          renderImporterUI();
-                      }
-                  };
-              }
+                       } catch (err) {
+                           console.error(err);
+                           alert(`เกิดข้อผิดพลาดในการซิงก์ข้อมูล: ${err.message}`);
+                       } finally {
+                           isLoading = false;
+                           loadingStage = '';
+                           renderImporterUI();
+                       }
+                   };
+               }
           }
 
           function updateTotalSum() {
@@ -1220,7 +1259,7 @@
           }
 
           // Run tab states and fullscreen features periodically
-          setInterval(() => {
+           setInterval(() => {
               if (window.location.hash.includes('admin')) {
                   document.body.classList.add('admin-page-active');
               } else {
