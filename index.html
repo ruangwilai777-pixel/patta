@@ -574,49 +574,99 @@
 
            // Perform matching and enrichment of AI parsed routes against target presets
            async function performMatchingAndEnrichment() {
-               if (!sbClient) return;
-               try {
-                   const period = getActiveMonthAndYear();
-                   let targetMonth = manualMonth !== null ? manualMonth : period.month;
-                   let targetYear = manualYear !== null ? manualYear : period.year;
+                if (!sbClient) return;
+                try {
+                    const period = getActiveMonthAndYear();
+                    let targetMonth = manualMonth !== null ? manualMonth : period.month;
+                    let targetYear = manualYear !== null ? manualYear : period.year;
 
-                   const suffix = `_${targetMonth + 1}_${targetYear}`;
-                   const suffixShort = `_${targetMonth + 1}_${String(targetYear).slice(-2)}`;
+                    const suffix = '_' + (targetMonth + 1) + '_' + targetYear;
+                    const suffixShort = '_' + (targetMonth + 1) + '_' + String(targetYear).slice(-2);
 
-                   const { data: dbPresets } = await sbClient.from('route_presets').select('*');
-                   const targetPresets = {};
-                   if (dbPresets) {
-                       dbPresets.forEach(p => {
-                           const rName = p.route_name || p.name || p.route || 'Unknown';
-                           if (rName.includes(suffix) || rName.includes(suffixShort)) {
-                               const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
-                               targetPresets[cleanName] = { price: p.price, wage: p.wage };
-                           }
-                       });
-                   }
+                    // Fetch presets
+                    const { data: dbPresets } = await sbClient.from('route_presets').select('*');
+                    const targetPresets = {};
+                    if (dbPresets) {
+                        dbPresets.forEach(p => {
+                            const rName = p.route_name || p.name || p.route || 'Unknown';
+                            if (rName.includes(suffix) || rName.includes(suffixShort)) {
+                                const cleanName = rName.replace(suffix, '').replace(suffixShort, '').trim();
+                                targetPresets[cleanName] = { price: p.price, wage: p.wage };
+                            }
+                        });
+                    }
 
-                   const enriched = rawAiPresets.map((item, index) => {
-                       const cleanRoute = (item.route || '').trim();
-                       const matchedPreset = targetPresets[cleanRoute];
-                       
-                       const wage = matchedPreset ? (parseFloat(matchedPreset.wage) || 0) : 0;
-                       
-                       return {
-                           id: index,
-                           date: item.date || getLocalDate(),
-                           originalRoute: cleanRoute,
-                           matchedRoute: cleanRoute,
-                           price: parseFloat(item.price) || 0,
-                           wage: wage,
-                           selected: true
-                       };
-                   });
+                    // Get selected driver from DOM
+                    const activeDriverEl = Array.from(document.querySelectorAll('.driver-selector-premium > div')).find(el => {
+                        return el.style.background === 'rgb(15, 23, 42)' || el.style.backgroundColor === 'rgb(15, 23, 42)' || el.classList.contains('active');
+                    });
+                    const activeDriverName = activeDriverEl ? activeDriverEl.textContent.trim() : '';
 
-                   parsedTrips = enriched;
-               } catch (err) {
-                   console.error("Error matching presets:", err);
-               }
-           }
+                    // Fetch existing logged trips for this driver and billing period to map prices cleanly
+                    const prevMonthIdx = (targetMonth - 1 + 12) % 12;
+                    const prevYear = targetMonth === 0 ? targetYear - 1 : targetYear;
+                    const startStr = prevYear + '-' + String(prevMonthIdx + 1).padStart(2, '0') + '-20';
+                    const endStr = targetYear + '-' + String(targetMonth + 1).padStart(2, '0') + '-19';
+
+                    const { data: dbTrips } = await sbClient
+                        .from('trips')
+                        .select('*')
+                        .eq('driver_name', activeDriverName || 'สมชาย')
+                        .gte('date', startStr)
+                        .lte('date', endStr);
+
+                    const existingLoggedTrips = dbTrips || [];
+                    existingLoggedTrips.sort((a, b) => a.date.localeCompare(b.date));
+
+                    const matchedTripIds = new Set();
+
+                    const enriched = rawAiPresets.map((item, index) => {
+                        const cleanRoute = (item.route || '').trim();
+                        const matchedPreset = targetPresets[cleanRoute];
+                        
+                        const defaultWage = matchedPreset ? (parseFloat(matchedPreset.wage) || 0) : 0;
+
+                        // Find first unmatched existing trip with the same route
+                        const matchedTrip = existingLoggedTrips.find(t => {
+                            if (matchedTripIds.has(t.id)) return false;
+                            const r = (t.route || '').trim();
+                            return r === cleanRoute;
+                        });
+
+                        if (matchedTrip) {
+                            matchedTripIds.add(matchedTrip.id);
+                            return {
+                                id: index,
+                                dbId: matchedTrip.id,
+                                isUpdate: true,
+                                date: matchedTrip.date,
+                                originalRoute: cleanRoute,
+                                matchedRoute: cleanRoute,
+                                price: parseFloat(item.price) || 0,
+                                wage: parseFloat(matchedTrip.wage) || defaultWage,
+                                selected: true
+                            };
+                        } else {
+                            let tripDate = item.date || (targetYear + '-' + String(targetMonth + 1).padStart(2, '0') + '-01');
+                            return {
+                                id: index,
+                                dbId: null,
+                                isNew: true,
+                                date: tripDate,
+                                originalRoute: cleanRoute,
+                                matchedRoute: cleanRoute,
+                                price: parseFloat(item.price) || 0,
+                                wage: defaultWage,
+                                selected: true
+                            };
+                        }
+                    });
+
+                    parsedTrips = enriched;
+                } catch (err) {
+                    console.error("Error matching presets:", err);
+                }
+            }
 
           // Render Main Importer HTML inside target element
           let isAiCollapsed = localStorage.getItem('aiImporterCollapsed') !== 'false';
@@ -1020,8 +1070,14 @@
                           <input type="checkbox" class="ai-item-checkbox" data-id="${item.id}" ${item.selected ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;" />
                       </td>
                       <td style="padding: 12px;">
-                          <input type="date" class="ai-date-input" data-id="${item.id}" value="${item.date}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 130px; font-weight: bold;" />
-                      </td>
+                           <div style="display: flex; flex-direction: column; gap: 4px;">
+                               <input type="date" class="ai-date-input" data-id="${item.id}" value="${item.date}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 130px; font-weight: bold;" />
+                               ${item.isUpdate ? 
+                                   `<span style="color: #34d399; font-size: 0.65rem; font-weight: 800; background: rgba(52,211,153,0.08); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(52,211,153,0.2); width: fit-content; display: inline-flex; align-items: center; gap: 2px;">🔄 อัปเดตงานเดิม</span>` : 
+                                   `<span style="color: #fbbf24; font-size: 0.65rem; font-weight: 800; background: rgba(251,191,36,0.08); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(251,191,36,0.2); width: fit-content; display: inline-flex; align-items: center; gap: 2px;">➕ เพิ่มแถวใหม่</span>`
+                               }
+                           </div>
+                       </td>
                       <td style="padding: 12px; font-weight: bold; color: var(--text-main);">${item.originalRoute}</td>
                       <td style="padding: 12px;">
                           <input type="text" class="ai-route-override" data-id="${item.id}" value="${item.matchedRoute}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 90%; font-weight: bold;" />
@@ -1144,30 +1200,51 @@
                             let failedCount = 0;
 
                             for (const item of selectedItems) {
-                                const payload = {
-                                    date: item.date,
-                                    route: item.matchedRoute.trim(),
-                                    driver_name: activeDriverName || 'สมชาย',
-                                    price: parseFloat(item.price) || 0,
-                                    wage: parseFloat(item.wage) || 0,
-                                    fuel: 0,
-                                    basket: 0,
-                                    maintenance: 0,
-                                    advance: 0,
-                                    staff_share: 0,
-                                    basket_count: 0
-                                };
+                                 if (item.dbId) {
+                                     // Update existing trip with price and wage
+                                     const { error: updateErr } = await sbClient
+                                         .from('trips')
+                                         .update({
+                                             price: parseFloat(item.price) || 0,
+                                             wage: parseFloat(item.wage) || 0,
+                                             route: item.matchedRoute.trim(),
+                                             date: item.date
+                                         })
+                                         .eq('id', item.dbId);
 
-                                const { error: insertErr } = await sbClient.from('trips').insert([payload]);
-                                if (insertErr) {
-                                    console.error("Error inserting trip:", insertErr);
-                                    failedCount++;
-                                } else {
-                                    successCount++;
-                                }
-                            }
+                                     if (updateErr) {
+                                         console.error("Error updating trip:", updateErr);
+                                         failedCount++;
+                                     } else {
+                                         successCount++;
+                                     }
+                                 } else {
+                                     // Insert new trip
+                                     const payload = {
+                                         date: item.date,
+                                         route: item.matchedRoute.trim(),
+                                         driver_name: activeDriverName || 'สมชาย',
+                                         price: parseFloat(item.price) || 0,
+                                         wage: parseFloat(item.wage) || 0,
+                                         fuel: 0,
+                                         basket: 0,
+                                         maintenance: 0,
+                                         advance: 0,
+                                         staff_share: 0,
+                                         basket_count: 0
+                                     };
 
-                            syncResult = { updatedCount: successCount, failedCount };
+                                     const { error: insertErr } = await sbClient.from('trips').insert([payload]);
+                                     if (insertErr) {
+                                         console.error("Error inserting trip:", insertErr);
+                                         failedCount++;
+                                     } else {
+                                         successCount++;
+                                     }
+                                 }
+                             }
+
+                             syncResult = { updatedCount: successCount, failedCount };
                             parsedTrips = [];
                             selectedFile = null;
                             detectedMonth = null;
