@@ -670,14 +670,7 @@
                            รอบบิลที่จะลงราคา: ${cycleStartStr} – ${cycleEndStr}
                        </div>
                        
-                       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px dashed var(--glass-border); padding-top: 8px;">
-                           <span>👤 พนักงานขับรถ:</span>
-                           <span style="color: #3b82f6; font-size: 0.68rem; font-weight: 800;">${activeDriverName ? `เลือกตามหน้าจอ: ${activeDriverName}` : 'กรุณาเลือกคนขับ'}</span>
-                       </div>
-                       <select id="ai-driver-select" class="custom-select" style="width: 100%; padding: 6px 10px; border-radius: 8px; font-weight: bold; background: rgba(0,0,0,0.2); color: #fff; margin-top: 2px;">
-                           ${activeDriverName ? '' : '<option value="" disabled selected>-- เลือกพนักงานขับรถ --</option>'}
-                           ${allDrivers.map(d => `<option value="${d}" ${d === (manualDriver || activeDriverName) ? 'selected' : ''}>${d}</option>`).join('')}
-                       </select>
+                       
                    </div>
                `;
 
@@ -876,12 +869,7 @@
                           }
                       }
 
-                   const driverSel = document.getElementById('ai-driver-select');
-                   if (driverSel) {
-                       driverSel.onchange = (e) => {
-                           manualDriver = e.target.value;
-                       };
-                   };
+                   
                   }
                   
                   if (fileInput) {
