@@ -450,6 +450,7 @@
           let manualYear = null;
           let rawAiPresets = [];
           let manualDriver = null;
+          let registeredDrivers = [];
 
           // Helper to get active month and year from DOM
           function getActiveMonthAndYear() {
@@ -545,6 +546,19 @@
                       });
                   }
                   routePresets = currentPresets;
+
+                  // Fetch registered drivers list
+                  const { data: dbDrivers } = await sbClient.from('drivers').select('name');
+                  if (dbDrivers && dbDrivers.length > 0) {
+                      registeredDrivers = dbDrivers.map(d => d.name.trim()).filter(Boolean);
+                  } else {
+                      registeredDrivers = [];
+                  }
+
+                  // Fallback to DOM selector if database query returned empty
+                  if (registeredDrivers.length === 0) {
+                      registeredDrivers = Array.from(document.querySelectorAll('.driver-selector-premium > div')).map(el => el.textContent.trim()).filter(Boolean);
+                  }
               } catch (e) {
                   console.error("Error fetching DB info:", e);
               }
@@ -945,7 +959,8 @@
                                   body: JSON.stringify({
                                       pdfBase64: base64,
                                       mimeType: selectedFile.type,
-                                      routePresets: presetsArray
+                                      routePresets: presetsArray,
+                                      drivers: registeredDrivers
                                   })
                               });
 
@@ -1019,6 +1034,12 @@
                       <td style="padding: 12px;">
                           <input type="date" class="ai-date-input" data-id="${item.id}" value="${item.date}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 130px; font-weight: bold;" />
                       </td>
+                      <td style="padding: 12px;">
+                          <select class="ai-item-driver-select" data-id="${item.id}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; font-weight: bold; width: 100%;">
+                              <option value="" disabled ${!item.driver ? 'selected' : ''}>-- เลือกคนขับ --</option>
+                              ${registeredDrivers.map(d => `<option value="${d}" ${d === item.driver ? 'selected' : ''}>${d}</option>`).join('')}
+                          </select>
+                      </td>
                       <td style="padding: 12px; font-weight: bold; color: var(--text-main);">${item.originalRoute}</td>
                       <td style="padding: 12px;">
                           <input type="text" class="ai-route-override" data-id="${item.id}" value="${item.matchedRoute}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.8rem; width: 90%; font-weight: bold;" />
@@ -1042,6 +1063,17 @@
                       if (trip) {
                           trip.selected = e.target.checked;
                           updateTotalSum();
+                      }
+                  };
+              });
+
+              // Bind item driver change
+              document.querySelectorAll('.ai-item-driver-select').forEach(sel => {
+                  sel.onchange = (e) => {
+                      const id = parseInt(e.target.dataset.id);
+                      const trip = parsedTrips.find(t => t.id === id);
+                      if (trip) {
+                          trip.driver = e.target.value;
                       }
                   };
               });
@@ -1195,11 +1227,13 @@
           function syncSettingsAiImporter() {
               initSupabase();
               
-              // Search for the "สรุปพนักงาน" title div
               const divs = Array.from(document.querySelectorAll('div'));
-              const targetTitle = divs.find(el => el.textContent.trim() === 'สรุปพนักงาน');
-              
-              if (!targetTitle) {
+              const adminHeader = divs.find(el => {
+                  const text = el.textContent || '';
+                  return text.includes('ADMIN PANEL') && (text.includes('ภาพรวมระบบ') || text.includes('ตารางงานทั้งหมด') || text.includes('สรุปพนักงาน') || text.includes('การตั้งค่า'));
+              });
+
+              if (!adminHeader) {
                   lastActiveMonthStr = '';
                   const oldContainer = document.getElementById('custom-ai-settings-card');
                   if (oldContainer) {
@@ -1207,9 +1241,6 @@
                   }
                   return;
               }
-
-              const driverSelector = document.querySelector('.driver-selector-premium');
-              if (!driverSelector) return;
 
               // Check if month changed
               const period = getActiveMonthAndYear();
@@ -1223,8 +1254,8 @@
                   aiCard.style.cssText = 'width: 100%; display: flex; flex-direction: column; gap: 1.5rem; margin-top: 0.5rem; margin-bottom: 1.5rem;';
                   aiCard.innerHTML = `<div id="ai-importer-content"></div>`;
                   
-                  // Insert BEFORE the driver selector
-                  driverSelector.parentNode.insertBefore(aiCard, driverSelector);
+                  // Insert after the admin header
+                  adminHeader.after(aiCard);
                   lastActiveMonthStr = periodStr;
                   renderImporterUI();
                   
@@ -1232,8 +1263,8 @@
                       renderImporterUI();
                   }).catch(e => console.error("Error loading DB info on mount:", e));
               } else {
-                  if (aiCard.nextElementSibling !== driverSelector) {
-                      driverSelector.parentNode.insertBefore(aiCard, driverSelector);
+                  if (aiCard.previousElementSibling !== adminHeader) {
+                      adminHeader.after(aiCard);
                   }
                   
                   if (monthChanged) {
