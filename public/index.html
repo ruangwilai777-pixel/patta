@@ -1468,6 +1468,59 @@
                   });
               }
 
+              function cleanTableTotals() {
+                  const tables = document.querySelectorAll('.trip-log-table-container table');
+                  let grandTotalPrice = 0;
+
+                  tables.forEach(table => {
+                      const tbody = table.querySelector('tbody');
+                      const tfoot = table.querySelector('tfoot');
+                      if (!tbody || !tfoot) return;
+
+                      let tableSumPrice = 0;
+                      const bodyRows = tbody.querySelectorAll('tr.table-row-hover');
+                      
+                      bodyRows.forEach(row => {
+                          const tds = row.querySelectorAll('td');
+                          if (tds.length < 8) return;
+
+                          const priceTd = tds[3];
+                          if (!priceTd) return;
+
+                          const priceText = priceTd.textContent.trim();
+                          if (priceText !== '-' && priceText !== '') {
+                              const val = parseFloat(priceText.replace(/,/g, '')) || 0;
+                              tableSumPrice += val;
+                          }
+                      });
+
+                      grandTotalPrice += tableSumPrice;
+
+                      const footerTds = tfoot.querySelectorAll('tr td');
+                      if (footerTds.length >= 4) {
+                          const sumTd = footerTds[2];
+                          if (sumTd) {
+                              if (tableSumPrice === 0) {
+                                  sumTd.textContent = '-';
+                              } else {
+                                  sumTd.textContent = tableSumPrice.toLocaleString('th-TH');
+                              }
+                          }
+                      }
+                  });
+
+                  // Update Grand Total Box
+                  const totalBoxes = document.querySelectorAll('.total-box');
+                  totalBoxes.forEach(box => {
+                      if (box.textContent.includes('ค่าเที่ยว (รายได้)')) {
+                          const numberDiv = Array.from(box.querySelectorAll('div')).find(d => /^[0-9,]+$/.test(d.textContent.trim()));
+                          if (numberDiv) {
+                              numberDiv.textContent = grandTotalPrice.toLocaleString('th-TH');
+                          }
+                      }
+                  });
+              }
+
               setInterval(() => {
                   if (!window.location.hash.includes('admin')) return;
                   
@@ -1483,7 +1536,8 @@
                   }
                   
                   cleanTablePrices();
-              }, 500);
+                  cleanTableTotals();
+              }, 400);
           })();
       });
     </script>
