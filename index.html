@@ -1228,12 +1228,19 @@
               initSupabase();
               
               const divs = Array.from(document.querySelectorAll('div'));
-              const adminHeader = divs.find(el => {
-                  const text = el.textContent || '';
-                  return text.includes('ADMIN PANEL') && (text.includes('ภาพรวมระบบ') || text.includes('ตารางงานทั้งหมด') || text.includes('สรุปพนักงาน') || text.includes('การตั้งค่า'));
-              });
+              const adminLabel = divs.find(el => el.textContent.trim() === 'ADMIN PANEL');
 
-              if (!adminHeader) {
+              if (!adminLabel) {
+                  lastActiveMonthStr = '';
+                  const oldContainer = document.getElementById('custom-ai-settings-card');
+                  if (oldContainer) {
+                      oldContainer.remove();
+                  }
+                  return;
+              }
+
+              const adminHeader = adminLabel.parentNode && adminLabel.parentNode.parentNode;
+              if (!adminHeader || !adminHeader.parentNode) {
                   lastActiveMonthStr = '';
                   const oldContainer = document.getElementById('custom-ai-settings-card');
                   if (oldContainer) {
